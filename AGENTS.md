@@ -1,62 +1,310 @@
-# EchoMind Agent Guide
+# AGENTS.md
 
-本文件约束所有参与 EchoMind 的人和编码代理。若任务说明与本文件冲突，以用户当前明确要求为最高优先级，并在 `docs/DECISIONS.md` 记录重要偏离。
+本文件定义 AI 编码代理在 EchoMind 仓库中的工作规则。
 
-## 每次任务的固定流程
+所有代理在修改代码前必须阅读本文件。
 
-1. 完整阅读 `README.md`、本文件和与任务相关的 `docs/`。
-2. 运行 `git status -sb`，检查现有代码、测试和未提交改动。
-3. 用一段话说明任务理解、范围与明确不做的内容。
-4. 列出计划修改的文件；发现用户改动时不得覆盖或丢弃。
-5. 实现最小充分、容易撤销的方案。
-6. 运行相关测试、类型检查和静态检查。
-7. 汇报实际修改、实际执行的验证及其结果。
-8. 明确遗留风险和下一步最合适的单一任务。
+## 1. 项目目标
 
-## 产品不可违背的约束
+EchoMind 将聊天记录转化为具有证据来源、时间信息和不确定性标记的动态个人认知档案。
 
-- 证据优先：重要 Insight 必须关联 Evidence；Evidence 必须能回到 Message。
-- 类型诚实：fact、preference、pattern、inference、hypothesis、contradiction、change 不得混用。
-- 用户主权：用户可确认、编辑、驳回、删除 Insight，也可排除 Message。
-- 非诊断：不得生成或暗示医疗、精神健康诊断。
-- 隐私默认：本地运行、无默认遥测、无默认远程模型调用。
-- 原始数据不可逆保护：清洗不得覆盖 `raw_content` 或原始导入文件。
-- 不记录敏感正文：日志只包含任务 ID、计数、耗时、状态和安全的错误摘要。
-- 模型可替换：业务逻辑不得直接依赖具体模型 SDK。
-- 测试离线：默认测试只使用 `MockLLMProvider`，不得要求 API Key 或网络。
+核心链路：
 
-## 工程约束
+聊天记录
+→ 导入
+→ 标准化
+→ 清洗
+→ Insight 抽取
+→ 证据绑定
+→ 用户校正
+→ EchoProfile
 
-- 后端：Python 3.12、FastAPI、Pydantic、SQLAlchemy、Alembic、pytest、Ruff、mypy。
-- 前端：React、TypeScript、Vite、React Router、TanStack Query、Vitest、Playwright。
-- SQLite 是 MVP 默认数据库，但数据层不得依赖 SQLite 专有行为。
-- 所有持久化时间使用带时区的 UTC；展示层再转换本地时区。
-- API、数据库和导出格式都必须有显式版本。
-- 不把全部逻辑放入路由、React 页面或单个服务文件。
-- 不新增大型依赖，除非任务明确需要并记录原因。
-- 不提交真实聊天样本、生成档案、数据库、密钥或用户路径。
-- 不用占位实现、吞异常或伪造测试结果冒充完成。
+任何功能都应服务于该链路。
 
-## 测试最低要求
+## 2. 当前优先级
 
-- 新增清洗步骤：单元测试覆盖启用、禁用、边界输入与统计输出。
-- 新增 Parser：契约测试、有效样本、无效样本、幂等导入测试。
-- 新增 API：成功、校验失败、未找到及隐私相关行为测试。
-- 新增抽取流程：使用 Mock provider 验证证据绑定、去重、冲突和幂等。
-- 新增前端流程：组件/页面测试；关键用户闭环增加 Playwright 测试。
-- 无法运行检查时，必须说明命令、阻塞原因和未验证范围。
+优先级从高到低：
 
-## 数据与迁移
+1. 数据不丢失
+2. 原始内容可追溯
+3. 推断有证据
+4. 隐私安全
+5. 处理过程可测试
+6. 输出结果可解释
+7. 用户可以修改 AI 判断
+8. 界面可用
+9. 性能优化
+10. 视觉效果
 
-- 模型改动必须通过 Alembic 迁移，不直接手改已有数据库。
-- 删除敏感数据时，优先真实级联删除；不得用软删除无限期保留正文。
-- `metadata` 在 SQLAlchemy 声明式模型中有特殊含义，Python 属性使用 `metadata_json`，数据库列可映射为 `metadata`。
-- Schema 变更同步更新 `docs/DATA_MODEL.md`、API 类型和导出 schema。
+不得为了低优先级目标破坏高优先级目标。
 
-## 文档同步规则
+## 3. 禁止事项
 
-- 产品范围变化：更新 `PRODUCT_SPEC.md` 和 `ROADMAP.md`。
-- 架构边界变化：更新 `ARCHITECTURE.md` 和 `DECISIONS.md`。
-- 数据结构变化：更新 `DATA_MODEL.md` 和 `PROFILE_SCHEMA.md`。
-- 导入规则变化：更新 `IMPORT_FORMAT.md`。
-- 外发数据、日志或保留策略变化：更新 `PRIVACY.md`。
+禁止：
+
+* 将 AI 推断保存为确定事实
+* 删除原始消息正文
+* 不保留原始文件哈希
+* 在日志中打印聊天正文
+* 硬编码 API Key
+* 自动上传用户文件
+* 默认依赖真实付费模型
+* 在测试中调用真实模型 API
+* 使用医疗或心理诊断语言
+* 用 MBTI 代替完整分析
+* 没有证据就生成高置信度人格结论
+* 为了“未来可能需要”提前引入微服务
+* 创建无法运行的伪实现
+* 用 TODO 代替当前任务的核心功能
+* 修改无关模块
+* 未运行测试就声称功能完成
+
+## 4. 数据原则
+
+所有消息同时保留：
+
+* raw_content
+* normalized_content
+
+任何清洗操作不得覆盖 raw_content。
+
+所有 Insight 必须包含：
+
+* insight_type
+* statement
+* confidence
+* status
+* extraction_version
+* created_at
+
+重要 Insight 至少关联一条 Evidence。
+
+推断应区分：
+
+* fact
+* preference
+* pattern
+* inference
+* hypothesis
+* contradiction
+* change
+
+## 5. 隐私原则
+
+EchoMind 默认 local-first。
+
+敏感内容：
+
+* 不写日志
+* 不写测试快照
+* 不加入示例数据
+* 不提交 Git
+* 不进入错误追踪服务
+
+测试样本必须是人工构造或彻底脱敏的数据。
+
+外部模型调用必须：
+
+* 明确由用户启用
+* 经过统一 Provider 接口
+* 说明会发送哪些内容
+* 支持关闭
+* 支持 Mock Provider
+
+## 6. 工程边界
+
+默认技术栈：
+
+Backend：
+
+* Python 3.12
+* FastAPI
+* Pydantic
+* SQLAlchemy
+* Alembic
+* SQLite
+* pytest
+* Ruff
+* mypy
+
+Frontend：
+
+* React
+* TypeScript
+* Vite
+* TanStack Query
+* Vitest
+* Playwright
+
+不得在没有明确收益时替换技术栈。
+
+## 7. 推荐目录
+
+backend/
+app/
+api/
+core/
+db/
+models/
+schemas/
+parsers/
+cleaning/
+extraction/
+profiling/
+providers/
+services/
+tests/
+
+frontend/
+src/
+api/
+components/
+features/
+pages/
+routes/
+types/
+tests/
+
+docs/
+samples/
+scripts/
+
+## 8. 开发流程
+
+每次任务执行前：
+
+1. 阅读 README.md
+2. 阅读 AGENTS.md
+3. 阅读相关 docs
+4. 查看 Git 状态
+5. 查看相关实现和测试
+
+执行任务时：
+
+1. 确定最小改动范围
+2. 先设计输入、输出和失败行为
+3. 优先编写或更新测试
+4. 完成功能
+5. 运行相关测试
+6. 运行格式和静态检查
+7. 检查是否泄露敏感信息
+8. 更新相关文档
+
+执行完成后必须报告：
+
+* 修改文件
+* 实现内容
+* 测试命令
+* 测试结果
+* 已知限制
+* 未完成事项
+
+## 9. 测试要求
+
+每个 Parser 至少测试：
+
+* 正常输入
+* 空文件
+* 编码异常
+* 字段缺失
+* 无效时间
+* 重复消息
+* 不支持的消息类型
+* 大文件的基本行为
+
+每个 Cleaner 至少测试：
+
+* 输入不变性
+* raw_content 不被覆盖
+* 开关启用和关闭
+* 边界条件
+* 幂等性
+
+Insight 流程至少测试：
+
+* 无证据时不能生成已确认 Insight
+* 相同 Insight 的去重
+* 冲突信息保留
+* Mock Provider 输出验证
+* 失败后的恢复
+* 重复执行不会产生无限重复数据
+
+## 10. API 设计原则
+
+API 应：
+
+* 使用明确的请求与响应 Schema
+* 提供可理解的错误信息
+* 不返回服务器路径
+* 不返回密钥
+* 分页返回大量数据
+* 对导入和抽取任务提供状态
+* 支持失败任务重试
+* 避免把数据库模型直接作为 API Schema
+
+## 11. 模型调用原则
+
+不得将完整聊天数据库一次性发送给模型。
+
+需要经过：
+
+* 范围选择
+* 消息过滤
+* 上下文构造
+* Token 预算
+* 分批处理
+* 结构化输出验证
+* 失败重试
+* 结果版本记录
+
+Provider 输出必须经过 Pydantic Schema 验证。
+
+无效输出不得直接进入正式 Insight 表。
+
+## 12. 置信度原则
+
+模型提供的 confidence 只能作为参考，不能直接视为最终置信度。
+
+最终置信度应结合：
+
+* 信息是否明确自述
+* 证据数量
+* 重复频率
+* 时间跨度
+* 场景跨度
+* 消息上下文完整度
+* 相反证据
+* 信息时效性
+
+计算规则必须可解释、可测试、可版本化。
+
+## 13. 文档同步
+
+以下变化必须更新文档：
+
+* 数据模型变化
+* API 行为变化
+* Parser 格式变化
+* Profile Schema 变化
+* 隐私边界变化
+* 新增外部依赖
+* 重大架构决策
+
+重大决策记录到：
+
+docs/DECISIONS.md
+
+## 14. 完成定义
+
+一个任务只有在以下条件满足时才算完成：
+
+* 功能符合任务范围
+* 代码能够运行
+* 测试通过
+* 静态检查通过，或明确记录未通过原因
+* 无明显敏感信息泄露
+* 文档已同步
+* 没有用占位实现冒充完成
+* 没有擅自扩大范围
+
+若无法全部完成，必须明确标记为部分完成，不得声称已完成。
