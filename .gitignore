@@ -1,6 +1,9 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+.coverage
+htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -12,6 +15,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+.eslintcache
 
 # Local data and secrets
 .env

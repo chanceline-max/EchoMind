@@ -1,3 +1,5 @@
-# Backend
+# EchoMind backend
 
-Phase 1 将在此建立 FastAPI 后端骨架。当前没有可运行后端，也没有安装依赖。
+阶段 1 的 FastAPI 基础工程。当前只提供配置加载和 `/api/v1/health`，不包含数据库或业务功能。
+
+安装、启动和检查命令见仓库根目录的 `README.md`。

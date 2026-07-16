@@ -122,12 +122,15 @@ class LLMProvider(Protocol):
 ## 6. API 设计原则
 
 - 前缀 `/api/v1`；OpenAPI 是前后端契约来源。
+- 阶段 1 已实现 `GET /api/v1/health`，固定返回 `status`、`service`、`version` 三个公开字段；响应由 Pydantic Schema 校验，不包含环境配置。
 - 列表 API 使用稳定排序和游标/分页，避免一次返回全部消息。
 - 错误使用统一 problem detail：`code`、`message`、`request_id`、安全的 `details`。
 - 修改 Insight 使用乐观并发版本号，防止覆盖用户刚完成的编辑。
 - 导出和远程模型调用是显式用户动作，不通过页面加载隐式触发。
 
 开发模式下前后端跨端口通信只允许配置中的精确 origin（默认 `http://127.0.0.1:5173` 和 `http://localhost:5173`），不得使用通配 CORS。生产式本地构建优先由同一 origin 提供前端和 API。
+
+阶段 1 的前端只使用 `VITE_API_BASE_URL` 请求健康接口，不使用持久化请求缓存、浏览器本地存储、Service Worker、Router 或 Query Client。数据库和领域模块从阶段 2 起按路线逐步加入。
 
 ## 7. 可恢复与幂等
 

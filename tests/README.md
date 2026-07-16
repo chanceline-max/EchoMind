@@ -1,3 +1,3 @@
 # Cross-project tests
 
-此目录将保存前后端契约和 Playwright 端到端测试。单元与模块集成测试分别放在 `backend/tests` 和 `frontend/tests`。
+此目录保留给未来的跨项目契约测试。阶段 1 的后端测试位于 `backend/tests`，前端单元测试和 Playwright 端到端测试位于 `frontend/tests`。
