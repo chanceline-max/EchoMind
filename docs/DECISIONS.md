@@ -6,7 +6,7 @@
 
 - 状态：Accepted
 - 日期：2026-07-16
-- 决策：在 `E:\开源项目小测试\EchoMind` 新建独立仓库，保留现有 `mind-map` Flask 星图原型不动。
+- 决策：建立独立的 `EchoMind/` 仓库，保留仓库外的历史 `mind-map` Flask 星图原型不动。
 - 原因：旧原型的数据模型、Flask 架构和星图交互均不满足正式产品的导入—证据—Insight—Profile 闭环。独立仓库可避免混淆，也保留原型供视觉参考。
 - 后果：不迁移旧业务代码；未来可选择迁移纯视觉资产，但必须重新审查隐私和产品适配性。
 
@@ -44,13 +44,13 @@
 
 - 状态：Proposed
 - 决策：不引入 Redis/Celery；使用 ImportJob/ExtractionRun 持久化状态，单 worker 分批处理。
-- 原因：满足本地可恢复需求并避免大型依赖。Phase 1/2 实测 SQLite 并发行为后确认。
+- 原因：满足本地可恢复需求并避免大型依赖。阶段 5/7 出现真实任务用例后再实现，不在阶段 2 提前建表。
 
 ## ADR-008：默认 confirmed-only Profile
 
-- 状态：Proposed
+- 状态：Accepted
 - 决策：默认只有 confirmed Insight 进入正式 Profile；用户可在预览中临时包含 proposed，但导出需明确标记。
-- 原因：符合人机协作和避免把 AI 候选当真相的原则。需用户确认产品体验。
+- 原因：符合人机协作和避免把 AI 候选当真相的原则。显式设置可纳入达到阈值的 proposed，但必须逐条标记未确认。
 
 ## ADR-009：真实 WeFlow 格式暂不声称支持
 
@@ -58,11 +58,52 @@
 - 决策：MVP 只建立 Parser 接口、示例适配器和脱敏契约测试；获得真实脱敏样本后再完善。
 - 原因：没有样本时猜测格式会制造虚假兼容性。
 
+## ADR-010：后端统一采用 src layout
+
+- 状态：Accepted
+- 日期：2026-07-16
+- 决策：后端代码路径统一为 `backend/src/echomind/`，测试位于 `backend/tests/`。
+- 原因：避免 README、AGENTS 和架构文档出现两个包布局，也避免从仓库根目录意外导入未安装源码。
+
+## ADR-011：MVP 不提供不可逆物理删除
+
+- 状态：Accepted
+- 日期：2026-07-16
+- 决策：MVP 使用归档、排除分析和有效性状态；核心证据链外键使用限制删除语义，不使用无提示数据库级联删除。
+- 原因：数据不丢失和证据可追溯优先于立即擦除。Evidence 失效必须传播到 Insight 和 Profile。
+- 后果：应用内暂不提供“彻底删除”；未来实现前必须设计影响预览、二次确认、事务删除和备份提示。
+
+## ADR-012：阶段 2 只实现八个核心数据模型
+
+- 状态：Accepted
+- 日期：2026-07-16
+- 决策：阶段 2 只实现 SourceFile、Conversation、Participant、Message、Evidence、Insight、InsightEvidence、ProfileSnapshot。
+- 原因：它们足以建立证据链。ImportJob、ExtractionRun、InsightRevision、InsightRelation、ProfileSnapshotInsight 分别推迟到实际使用它们的阶段。
+
+## ADR-013：MVP 单 workspace 单 profile owner
+
+- 状态：Accepted
+- 日期：2026-07-16
+- 决策：一个本地 workspace 只分析一个 profile owner；可以有多个聊天 Participant。
+- 原因：避免在 MVP 中引入多档案隔离、权限和交叉证据语义。
+
+## ADR-014：远程 Provider 按分析任务显式启用
+
+- 状态：Accepted
+- 日期：2026-07-16
+- 决策：默认 Mock；每次创建使用远程 Provider 的分析任务时，界面显示 Provider 和发送范围并由用户确认。任务内部批次不重复弹窗。
+- 原因：兼顾明确授权与批处理可用性。启用远程 Provider 不是离线 MVP 验收前提。
+
+## ADR-015：应用层静态加密推迟到 MVP 后
+
+- 状态：Accepted
+- 日期：2026-07-16
+- 决策：MVP 不实现应用层数据库/文件加密，明确建议整盘加密并显示限制。
+- 原因：跨平台密钥存储、恢复和备份会显著扩大范围；在没有可靠密钥生命周期前，仓促加密可能造成不可恢复的数据丢失。
+
 ## 尚未决策
 
-1. 单数据库是否允许多个 profile owner。
-2. 是否在 MVP 内加入应用层静态加密。
-3. 远程模型调用是否必须逐次确认，还是允许会话级授权。
-4. 成功解析后是否默认保留原始文件副本。
-5. confirmed-only Profile 默认策略是否符合用户预期。
-6. 项目开源许可证。
+1. 阶段 3/5 的文件大小、消息数和单条正文长度限制。
+2. hypothesis 的初始置信度上限及各类型阈值，需要阶段 8 用性质测试确定。
+3. 获得授权脱敏 WeFlow 样本后的真实字段映射。
+4. 项目开源许可证。

@@ -14,6 +14,7 @@
 - 远程模型调用必须由用户显式启用，并在发送前说明 Provider、数据范围和脱敏设置。
 - 不加载远程字体、追踪像素或第三方前端资源。
 - 真实聊天、数据库、档案、密钥和 `.env` 不进入 Git。
+- MVP 不提供证据链数据的不可逆物理删除；归档和排除必须保留原始内容并传播 Evidence 失效状态。
 
 ## 3. 数据最小化与目的限制
 
@@ -36,7 +37,23 @@ data/
 - 建议用户启用 Windows BitLocker 或等价的整盘加密，并保护操作系统账户。
 - 临时文件在成功或失败后清理；清理失败必须显示安全错误，不静默忽略。
 
-## 5. 远程模型调用
+## 5. 隐私路径默认策略
+
+| 路径 | MVP 默认 | 允许条件/控制 |
+|---|---|---|
+| 浏览器 HTTP 缓存 | 禁止缓存消息、Evidence、Insight、Profile 和导出响应 | 敏感 API 返回 `Cache-Control: no-store`；仅静态构建资源可缓存 |
+| 前端本地存储 | 禁止把敏感数据写入 localStorage、sessionStorage、IndexedDB、Service Worker cache 或持久化 Query cache | 只允许保存无敏感内容的 UI 偏好，例如主题；TanStack Query 默认仅内存缓存并在页面关闭后消失 |
+| CORS | 禁止 `*` 和任意 origin | 开发模式只允许配置中的精确 localhost/127.0.0.1 origin；局域网 origin 必须由用户显式配置 |
+| 上传临时文件 | 只写入应用私有 quarantine，不使用可预测客户端路径 | 校验大小/hash/格式后原子移动；成功、失败和进程恢复时都有清理；日志不写绝对路径 |
+| 导出文件 | 不自动生成、不自动同步、不自动打开外部应用 | 用户显式点击导出并选择本地位置；导出前提示其包含高敏感数据；响应 `no-store` |
+| 错误日志 | 默认只允许字段白名单 | 仅 request/job ID、阶段、计数、错误代码；异常和验证错误先安全化，不记录请求/响应 body |
+| 测试快照 | 禁止真实或脱敏不足的正文进入快照和测试报告 | 只允许完全合成数据；失败输出需截断并清除 payload |
+| 崩溃报告 | 默认关闭所有外部崩溃报告 | 未来如启用，必须用户显式同意、展示接收方和字段，并经过正文/密钥过滤测试 |
+| 模型请求缓存 | 本地和 Provider 适配层默认不缓存 prompt/响应 | 用户显式启用远程 Provider 前必须提示第三方可能存在的保留/缓存政策；EchoMind 不替用户假设“零保留” |
+
+前端构建不得嵌入 API Key。开发代理、浏览器控制台、React 错误边界和网络调试输出同样受“无敏感正文”约束。
+
+## 6. 远程模型调用
 
 远程 Provider 是 opt-in 功能，必须满足：
 
@@ -50,7 +67,7 @@ data/
 
 远程服务的数据保留和训练政策由用户选择的 Provider 决定，EchoMind 必须提示用户自行核对。
 
-## 6. 日志政策
+## 7. 日志政策
 
 允许记录：request/job ID、阶段、消息计数、耗时、状态、解析器版本、安全错误代码。
 
@@ -60,16 +77,17 @@ data/
 
 参考：[OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)。
 
-## 7. 用户控制
+## 8. 用户控制
 
 - 排除或恢复消息参与分析。
 - 查看、修改、驳回、删除 Insight。
-- 删除导入文件及派生数据。
+- 归档 SourceFile/Conversation/Message，排除或恢复 Message 参与分析，并查看受影响 Evidence/Insight/Profile。
+- MVP 不在界面提供不可逆物理删除；未来物理删除必须先显示完整影响范围并二次确认。
 - 导出结构化档案。
 - 查看远程模型配置和最近调用的安全统计。
 - 在调用前关闭远程模型或脱敏步骤。
 
-## 8. 威胁模型（MVP）
+## 9. 威胁模型（MVP）
 
 | 风险 | MVP 控制 |
 |---|---|
@@ -78,19 +96,33 @@ data/
 | 恶意导入文件 | 大小限制、格式验证、文本处理、不执行内容 |
 | 路径穿越 | 生成服务端文件名、校验解析后路径位于 data 根目录 |
 | XSS | 原文按文本渲染，不渲染导入 HTML |
+| 浏览器持久化泄露 | 敏感响应 no-store；禁止敏感 localStorage/IndexedDB/Service Worker cache |
+| 宽松 CORS 暴露本地 API | 精确 origin allowlist；禁止通配 CORS |
+| 临时/导出文件遗留 | 私有 quarantine、恢复清理、用户显式导出和敏感提示 |
 | CSV 公式注入 | 导出 CSV 时转义危险前缀；MVP Profile 不默认导出 CSV |
 | 未授权局域网访问 | 默认只监听 localhost；开放网络必须显式配置 |
 | 远程模型过度外发 | opt-in、窗口化、预览范围、默认脱敏 |
 | 错误人格推断造成伤害 | 非诊断声明、证据链、类型区分、用户确认和驳回 |
 | 派生档案比原文更敏感 | 与原文同级保护、可删除、无默认分享 |
 
-## 9. AI 风险治理
+## 10. AI 风险治理
 
 EchoMind 使用“治理、映射、测量、管理”的持续风险思路，记录 Provider、抽取版本、置信度版本、用户修订和已知局限。此做法参考 NIST AI RMF 的透明、可解释、隐私增强和生命周期风险管理原则。
 
 参考：[NIST AI RMF 1.0](https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10)、[NIST AI RMF Core](https://airc.nist.gov/airmf-resources/airmf/5-sec-core/)。
 
-## 10. 尚未解决
+## 11. 可验证隐私检查
+
+- API 安全测试断言敏感响应包含 `Cache-Control: no-store`，错误不含绝对路径和正文。
+- CORS 集成测试断言允许列表 origin 成功，未知 origin 和通配配置失败。
+- 前端测试注入 localStorage/IndexedDB spy，断言敏感实体不被写入。
+- 上传集成测试断言 quarantine 在成功、失败和恢复后无孤儿文件。
+- 日志测试使用合成 canary 字符串，断言日志和测试报告中不存在该字符串。
+- Provider 测试阻断网络并断言默认 Mock；远程 Provider 只有显式配置和用户操作才可调用。
+- 仓库/产物扫描检查 `.env`、数据库、Profile、真实样本、绝对用户路径和常见密钥模式。
+- 发布前仍执行手动隐私审查，因为第三方政策、操作系统备份和浏览器行为不能完全由单元测试证明。
+
+## 12. 尚未解决
 
 - 应用层静态加密及跨平台密钥恢复。
 - 第三方聊天参与者的授权、通知与不同司法辖区要求。
