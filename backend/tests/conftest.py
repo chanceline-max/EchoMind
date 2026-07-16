@@ -1,12 +1,17 @@
 """Shared backend test fixtures."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.orm import Session
 
 from echomind.core.config import Settings
+from echomind.db.base import Base
+from echomind.db.session import create_db_engine, create_session_factory
 from echomind.main import create_app
+from echomind.models import Conversation  # noqa: F401 - registers all model tables
 
 
 @pytest.fixture
@@ -30,3 +35,18 @@ async def client(settings: Settings) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=create_app(settings))
     async with AsyncClient(transport=transport, base_url="http://testserver") as test_client:
         yield test_client
+
+
+@pytest.fixture
+def db_session(tmp_path: Path) -> Iterator[Session]:
+    """Create an isolated SQLite database with enforced foreign keys."""
+
+    database_path = tmp_path / "echomind-test.db"
+    engine = create_db_engine(f"sqlite:///{database_path.as_posix()}")
+    Base.metadata.create_all(engine)
+    session = create_session_factory(engine)()
+    try:
+        yield session
+    finally:
+        session.close()
+        engine.dispose()

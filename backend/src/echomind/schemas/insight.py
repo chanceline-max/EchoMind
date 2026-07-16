@@ -1,0 +1,63 @@
+"""Insight and evidence-link schemas."""
+
+from typing import Any
+from uuid import UUID
+
+from pydantic import AwareDatetime, Field, model_validator
+
+from echomind.models.enums import EvidenceState, InsightStatus, InsightType
+from echomind.schemas.common import Confidence, NonEmptyString, ReadSchema, StrictSchema
+
+
+class InsightCreate(StrictSchema):
+    category: NonEmptyString = Field(max_length=100)
+    insight_type: InsightType
+    title: NonEmptyString = Field(max_length=255)
+    statement: NonEmptyString
+    confidence: Confidence
+    status: InsightStatus = InsightStatus.PROPOSED
+    evidence_state: EvidenceState = EvidenceState.VALID
+    valid_from: AwareDatetime | None = None
+    valid_to: AwareDatetime | None = None
+    model_name: str | None = Field(default=None, max_length=255)
+    extraction_version: NonEmptyString = Field(max_length=100)
+    reasoning_basis: str | None = None
+    alternative_explanations: list[str] = Field(default_factory=list)
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_time_range(self) -> "InsightCreate":
+        if self.valid_from and self.valid_to and self.valid_to < self.valid_from:
+            raise ValueError("valid_to must not be earlier than valid_from")
+        return self
+
+
+class InsightRead(ReadSchema):
+    id: UUID
+    category: str
+    insight_type: InsightType
+    title: str
+    statement: str
+    confidence: float
+    status: InsightStatus
+    evidence_state: EvidenceState
+    valid_from: AwareDatetime | None
+    valid_to: AwareDatetime | None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+    model_name: str | None
+    extraction_version: str
+    reasoning_basis: str | None
+    alternative_explanations: list[str]
+    metadata_json: dict[str, Any]
+
+
+class InsightEvidenceCreate(StrictSchema):
+    insight_id: UUID
+    evidence_id: UUID
+
+
+class InsightEvidenceRead(ReadSchema):
+    insight_id: UUID
+    evidence_id: UUID
+    created_at: AwareDatetime

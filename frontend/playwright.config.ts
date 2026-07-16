@@ -9,10 +9,7 @@ const backendCommand =
   process.platform === "win32"
     ? ".\\.venv\\Scripts\\python.exe -m uvicorn echomind.main:app --host 127.0.0.1 --port 8000"
     : "./.venv/bin/python -m uvicorn echomind.main:app --host 127.0.0.1 --port 8000";
-const frontendCommand =
-  process.platform === "win32"
-    ? ".\\node_modules\\.bin\\vite.cmd --host 127.0.0.1"
-    : "./node_modules/.bin/vite --host 127.0.0.1";
+const frontendCommand = `"${process.execPath}" ./node_modules/vite/bin/vite.js --host 127.0.0.1`;
 
 export default defineConfig({
   testDir: "./tests/e2e",

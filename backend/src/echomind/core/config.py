@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     app_version: str = Field(default="0.1.0", validation_alias="APP_VERSION")
     api_v1_prefix: str = Field(default="/api/v1", validation_alias="API_V1_PREFIX")
     environment: str = Field(default="development", validation_alias="ENVIRONMENT")
+    database_url: str = Field(
+        default="sqlite:///./data/echomind.db",
+        validation_alias="DATABASE_URL",
+    )
     frontend_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",
@@ -37,6 +41,13 @@ class Settings(BaseSettings):
         if not normalized.startswith("/") or normalized == "":
             raise ValueError("API_V1_PREFIX must be a non-root absolute URL path")
         return normalized
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("DATABASE_URL must not be empty")
+        return value
 
     @field_validator("frontend_origins")
     @classmethod

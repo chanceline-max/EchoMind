@@ -8,7 +8,7 @@
 
 验收：文档形成一致的单用户、本地优先 MVP；明确类型规则、删除规则、离线 Mock 闭环、自动化验收矩阵和下一任务；不编写业务代码。
 
-## 阶段 1：初始化工程骨架（当前完成）
+## 阶段 1：初始化工程骨架（已完成）
 
 范围：backend/frontend 基础工程、依赖与配置、健康检查、最简单首页、测试与静态检查、`.env.example`、本地启动说明。前端调用后端健康检查。
 
@@ -16,9 +16,9 @@
 
 验收：后端和前端可本地启动；健康检查端到端可见；后端测试/Ruff/mypy、前端测试/类型检查/构建实际通过。
 
-## 阶段 2：实现核心数据库模型
+## 阶段 2：实现核心数据库模型（当前完成）
 
-范围：SourceFile、Conversation、Participant、Message、Evidence、Insight、InsightEvidence、ProfileSnapshot；SQLAlchemy、Pydantic、Alembic、Session 和最小具体 Service/Repository。
+范围：SourceFile、Conversation、Participant、Message、Evidence、Insight、InsightEvidence、ProfileSnapshot；普通 Conversation/Participant 关联表；同步 SQLAlchemy、Pydantic、Alembic 和 Session 工厂。本阶段没有真实用例，因此不创建 Service/Repository。
 
 验收：迁移可在空 SQLite 上升级并回滚；约束、索引、UTC 时间、metadata 命名、Evidence 追溯和受控删除测试通过。不建立通用 Repository 框架。
 
@@ -92,4 +92,4 @@
 
 ## 当前下一单一任务
 
-执行 **阶段 2：实现核心数据库模型**，且只实现已确定的八个证据链模型、迁移和相关约束测试；不得提前进入聊天导入、清洗、模型调用或界面业务功能。
+执行 **阶段 3：实现通用聊天导入器**，只建立 Parser 协议、canonical schema、JSON/CSV/纯文本解析和合成测试样本；Parser 不写数据库，不提前实现上传 API、Cleaner、模型调用或界面业务功能。

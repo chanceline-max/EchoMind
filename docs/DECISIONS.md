@@ -26,7 +26,7 @@
 
 - 状态：Accepted
 - 决策：原始文件保存在私有 data 目录，数据库保存相对路径、哈希和解析元数据。
-- 原因：避免数据库 BLOB 膨胀、支持文件级删除和隔离。代价是备份需同时覆盖 DB 和 data。
+- 原因：避免数据库 BLOB 膨胀并支持存储隔离。代价是备份需同时覆盖 DB 和 data；MVP 仍不提供不可逆物理删除功能。
 
 ## ADR-005：共享 Profile 中间模型
 
@@ -100,6 +100,15 @@
 - 日期：2026-07-16
 - 决策：MVP 不实现应用层数据库/文件加密，明确建议整盘加密并显示限制。
 - 原因：跨平台密钥存储、恢复和备份会显著扩大范围；在没有可靠密钥生命周期前，仓促加密可能造成不可恢复的数据丢失。
+
+## ADR-016：阶段 2 数据库边界与可移植性
+
+- 状态：Accepted
+- 日期：2026-07-16
+- 决策：阶段 2 使用同步 SQLAlchemy、应用侧 UUID4 字符串、统一 `UTCDateTime` 和 SQLite `PRAGMA foreign_keys=ON`；八个 ORM 模型之外仅增加普通 `conversation_participants` 关联表。
+- 决策：`SourceFile.file_hash` 单列全局唯一；Parser 信息只作追溯元数据。Insight 当前只保存通用 `confidence`、`reasoning_basis` 和 `alternative_explanations`，不提前实现阶段 8 的分数因子、公式版本或 hypothesis 数值阈值。
+- 原因：这些选择足以约束阶段 2 的证据链，同时避免数据库专用 UUID、重复源文件、虚假的语义保证和提前设计置信度算法。
+- 后果：Conversation/Participant 的 ORM 多对多集合是只读关系，关联写入留给后续明确的 Service，避免 ORM 自动删除关联行绕过 RESTRICT。Message 回复目标是否属于同一 Conversation，以及 Insight 七类语义、证据状态传播和 Profile 失效传播，也必须由后续可测试 Service 实现；当前数据库不声称已保证这些业务规则。
 
 ## 尚未决策
 
