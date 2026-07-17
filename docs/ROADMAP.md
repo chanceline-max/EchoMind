@@ -22,13 +22,13 @@
 
 验收：迁移可在空 SQLite 上升级并回滚；约束、索引、UTC 时间、metadata 命名、Evidence 追溯和受控删除测试通过。不建立通用 Repository 框架。
 
-## 阶段 3：实现通用聊天导入器（当前完成）
+## 阶段 3：实现通用聊天导入器（已完成）
 
 范围：插件式 Parser、canonical schema、JSON/CSV/纯文本、文件 hash、导入统计、合成样本；WeFlow 只返回明确未支持。
 
 验收：每个 Parser 的正常、空、编码异常、字段缺失、无效时间、重复、不支持类型和基本大文件测试通过；Parser 不写数据库和日志正文。
 
-## 阶段 4：实现数据清洗 Pipeline
+## 阶段 4：实现数据清洗 Pipeline（当前完成）
 
 范围：独立可配置 Cleaner、统计、幂等、raw 不变性；连续短消息使用派生分析单元/分组，不删除原消息。
 
@@ -92,4 +92,4 @@
 
 ## 当前下一单一任务
 
-执行 **阶段 4：实现数据清洗 Pipeline**，只建立独立、可配置、可测试且保持 raw 不变的 Cleaner 和统计；不实现上传 API、数据库写入、模型调用、Insight、Profile 或前端业务页面。
+执行 **阶段 5：实现导入 API 和前端导入页面**。开始前应先定义上传大小/类型、quarantine 生命周期、重复导入、Parser/Cleaner 到数据库事务、任务状态和错误脱敏的输入输出与失败行为；不得提前实现 Insight、Provider 或 Profile。

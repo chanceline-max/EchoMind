@@ -67,6 +67,13 @@ data/
 
 远程服务的数据保留和训练政策由用户选择的 Provider 决定，EchoMind 必须提示用户自行核对。
 
+### 阶段 4 清洗边界
+
+- Cleaning 只处理调用方已传入的 `ParsedChatFile` 内存对象；不扫描目录、不读取附件、不访问 URL、不调用网络、不创建缓存数据库。
+- `raw_content` 永久保留且不被 Cleaner 赋值；`normalized_content`、分类、重复、排除和 AnalysisUnit 都是可重建派生数据。排除与重复标记不删除消息或 reply 引用。
+- 脱敏默认关闭，显式开启也只覆盖少量确定性模式，不能替代人工隐私审查。phone_like 仅覆盖带 `+` 的明确国际形式；email/IPv4/custom 均可能误报或漏报。
+- 操作追溯、统计、CleaningError 和 CleaningWarning 不保存聊天正文、URL、匹配值或本机路径。AnalysisUnit 的 `combined_content` 是敏感派生正文，保护级别与消息正文相同，不得写日志、快照或浏览器持久存储。
+
 ## 7. 日志政策
 
 允许记录：request/job ID、阶段、消息计数、耗时、状态、解析器版本、安全错误代码。
