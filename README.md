@@ -65,6 +65,13 @@ alembic upgrade head
 
 `downgrade base` 会删除阶段 2 的表，只用于空的开发/测试数据库。不要对包含需要保留数据的数据库执行该命令。测试使用 pytest 提供的独立临时 SQLite 文件，不读取或污染默认开发数据库。
 
+迁移回归不要在 `backend/data/` 创建固定测试数据库。使用现有 pytest 用例，它通过 `tmp_path` 创建隔离数据库，并依次执行 upgrade、downgrade、upgrade 和 metadata drift 检查；测试结束后临时目录自动清理：
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m pytest tests/test_migrations.py -q
+```
+
 ## 前端安装与启动
 
 另开一个终端：

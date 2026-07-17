@@ -93,7 +93,7 @@ explicit local Path → extension/signature selection → raw-byte SHA-256
 - Registry 先按扩展名筛选，再最多读取 8192 字节做可靠签名识别；无匹配和多匹配都明确失败，显式 Parser 名称可覆盖自动选择。
 - Parser 输出与 ORM 解耦；不创建 SourceFile/Conversation/Message，不查询重复文件，不提交事务。
 - JSON、CSV 和固定纯文本使用同一集中跨记录验证：会话/参与者/消息唯一性、sender/reply 引用、profile owner 数量、aware 时间、范围和统计一致性。
-- 输出消息按 `(timestamp, source_order)` 稳定排序；`source_order` 保留文件原始位置。strict 立即失败，lenient 只跳过可恢复的单条记录。
+- 输出消息按 `(timestamp, source_order)` 稳定排序；`source_order` 保留文件原始位置。strict 立即失败；lenient 跳过可恢复记录后，统一 validation 继续级联移除引用已缺失目标的消息，直到结果不存在悬空 reply，且绝不通过清空 reply 引用保留消息。
 - 错误仅返回安全 basename 和 JSON Pointer/行号等结构位置；Parser 不记录正文。WeFlow 在取得授权脱敏样本前始终不可用。
 
 - 先写入临时隔离区，验证通过后再移动到正式私有目录。

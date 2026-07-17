@@ -84,6 +84,80 @@ def test_sender_and_reply_must_exist_in_same_conversation() -> None:
     assert reply_error.value.error_code == "unknown_reply"
 
 
+def test_lenient_unknown_sender_skip_preserves_counts_order_and_references() -> None:
+    result = finalize(
+        [
+            conversation(
+                messages=[
+                    message("message-1", source_order=0),
+                    message("bad-sender", sender="missing", source_order=1),
+                    message("message-3", source_order=2),
+                ]
+            )
+        ],
+        ErrorMode.LENIENT,
+    )
+    parsed = result.conversations[0]
+    participant_ids = {
+        item.source_participant_id
+        for item in parsed.participants
+        if item.source_participant_id is not None
+    }
+
+    assert result.statistics.accepted_record_count == 2
+    assert result.statistics.skipped_record_count == 1
+    assert [item.source_order for item in parsed.messages] == [0, 2]
+    assert all(item.sender_source_id in participant_ids for item in parsed.messages)
+
+
+def test_lenient_reply_skip_cascades_until_no_dangling_reference_remains() -> None:
+    result = finalize(
+        [
+            conversation(
+                messages=[
+                    message("message-a", sender="missing", source_order=0),
+                    message("message-b", reply="message-a", source_order=1),
+                    message("message-c", reply="message-b", source_order=2),
+                    message("message-d", source_order=3),
+                ]
+            )
+        ],
+        ErrorMode.LENIENT,
+    )
+    parsed = result.conversations[0]
+    message_ids = {item.source_message_id for item in parsed.messages}
+
+    assert [item.source_message_id for item in parsed.messages] == ["message-d"]
+    assert result.statistics.accepted_record_count == 1
+    assert result.statistics.skipped_record_count == 3
+    assert [warning.error_code for warning in result.warnings] == [
+        "unknown_sender",
+        "unknown_reply",
+        "unknown_reply",
+    ]
+    assert all(
+        item.reply_to_source_message_id is None or item.reply_to_source_message_id in message_ids
+        for item in parsed.messages
+    )
+
+
+def test_strict_reference_validation_stops_at_first_related_error() -> None:
+    with pytest.raises(ParserError) as captured:
+        finalize(
+            [
+                conversation(
+                    messages=[
+                        message("message-a", sender="missing", source_order=0),
+                        message("message-b", reply="message-a", source_order=1),
+                    ]
+                )
+            ]
+        )
+
+    assert captured.value.error_code == "unknown_sender"
+    assert captured.value.location == "record:0"
+
+
 def test_profile_owner_count_and_identifiers_are_unique() -> None:
     with pytest.raises(ParserError) as owner_error:
         finalize([conversation(participants=[participant("a"), participant("b")])])
@@ -136,6 +210,37 @@ def test_statistics_match_actual_canonical_data() -> None:
     assert result.statistics.message_count == 1
     assert result.statistics.accepted_record_count == 1
     assert validate_parsed_chat(result) is result
+
+
+def test_repeated_validation_is_idempotent_for_warnings_statistics_and_order() -> None:
+    early = datetime(2026, 7, 16, 2, 20, tzinfo=UTC)
+    late = datetime(2026, 7, 16, 2, 30, tzinfo=UTC)
+    result = finalize(
+        [
+            conversation(
+                messages=[
+                    message("late", source_order=4, timestamp=late),
+                    message("bad", sender="missing", source_order=1, timestamp=early),
+                    message("early", source_order=2, timestamp=early),
+                ]
+            )
+        ],
+        ErrorMode.LENIENT,
+    )
+    original = result.model_dump_json()
+
+    first = validate_parsed_chat(result)
+    after_first = first.model_dump_json()
+    second = validate_parsed_chat(first)
+
+    assert first is result
+    assert second is result
+    assert original == after_first == second.model_dump_json()
+    assert result.statistics.skipped_record_count == 1
+    assert result.statistics.warning_count == 1
+    assert len(result.warnings) == 1
+    assert result.conversations[0].time_range_derived is True
+    assert [item.source_order for item in result.conversations[0].messages] == [2, 4]
 
 
 def test_empty_results_are_rejected() -> None:

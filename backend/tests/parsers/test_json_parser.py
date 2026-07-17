@@ -28,6 +28,21 @@ def test_valid_single_conversation_preserves_raw_content(tmp_path: Path) -> None
     assert message.source_order == 0
 
 
+def test_optional_message_fields_default_when_omitted(tmp_path: Path) -> None:
+    raw_message = synthetic_message()
+    del raw_message["reply_to_message_id"]
+    del raw_message["metadata_json"]
+    path = write_json(
+        tmp_path / "synthetic.json",
+        synthetic_json_payload([synthetic_conversation(messages=[raw_message])]),
+    )
+
+    message = GenericJsonParser().parse(path).conversations[0].messages[0]
+
+    assert message.reply_to_source_message_id is None
+    assert message.metadata_json == {}
+
+
 def test_valid_multiple_conversations_and_reply(tmp_path: Path) -> None:
     reply_messages = [
         synthetic_message(),

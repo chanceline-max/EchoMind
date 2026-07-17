@@ -81,7 +81,7 @@ default_timezone: IANA name | null
 encoding: Python codec name  # 默认 UTF-8
 ```
 
-`strict` 遇到第一条无效记录立即失败。`lenient` 只跳过可恢复的单条坏消息/CSV 行/文本行，同时保留原始 `source_order`，产生 warning 并增加跳过计数。文件不可读、哈希失败、整体 JSON/CSV/文本结构错误、跨行元数据冲突、无法确定格式、无有效会话、无有效消息或 Canonical 整体不一致始终失败。
+`strict` 遇到第一条无效记录立即失败。`lenient` 只跳过可恢复的单条坏消息/CSV 行/文本行，同时保留原始 `source_order`，产生 warning 并增加跳过计数。若被跳过的消息是其他消息的 reply 目标，统一验证会继续跳过引用它的消息，并重复检查直到没有悬空 reply；不会清空 `reply_to_source_message_id` 后继续接受消息。连锁跳过的每条消息都分别计入 warning 和 `skipped_record_count`。文件不可读、哈希失败、整体 JSON/CSV/文本结构错误、跨行元数据冲突、无法确定格式、无有效会话、无有效消息或 Canonical 整体不一致始终失败。
 
 编码不自动探测。默认接受 UTF-8 和 UTF-8 BOM；其他编码必须由调用方显式指定，且 Python 标准库必须支持。
 
@@ -136,7 +136,22 @@ encoding: Python codec name  # 默认 UTF-8
 }
 ```
 
-顶层四个字段全部必填且不允许未知字段。会话必填 `id/participants/messages`；其余会话字段可选，省略的 `platform` 继承顶层值。参与者必填 `id/name`，其余字段可选。消息七个字段全部必填，其中 `reply_to_message_id` 可为 `null`。所有层级都拒绝未知字段，避免拼写错误被静默忽略。`format` 或版本不匹配时明确失败，不把任意 JSON 猜成此格式。消息级 Schema 错误可在 lenient 模式跳过，顶层或会话整体结构错误不可恢复。
+顶层四个字段全部必填且不允许未知字段。会话必填 `id/participants/messages`；其余会话字段可选，省略的 `platform` 继承顶层值。参与者必填 `id/name`，其余字段可选。
+
+消息必填字段：
+
+- `id`
+- `sender_id`
+- `timestamp`
+- `type`
+- `content`
+
+消息可选字段：
+
+- `reply_to_message_id`：省略时默认为 `null`
+- `metadata_json`：省略时默认为空对象 `{}`
+
+所有层级都拒绝未知字段，避免拼写错误被静默忽略。`format` 或版本不匹配时明确失败，不把任意 JSON 猜成此格式。消息级 Schema 错误可在 lenient 模式跳过，顶层或会话整体结构错误不可恢复。合成样本同时展示了显式提供可选字段和省略可选字段两种合法写法。
 
 ## 7. 通用 CSV v1
 

@@ -1,7 +1,9 @@
 """Alembic lifecycle tests against a fresh temporary SQLite database."""
 
+from collections.abc import Iterator
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
@@ -27,8 +29,18 @@ def alembic_config(database_path: Path) -> Config:
     return config
 
 
-def test_upgrade_downgrade_upgrade_lifecycle(tmp_path: Path) -> None:
+@pytest.fixture
+def migration_database_path(tmp_path: Path) -> Iterator[Path]:
     database_path = tmp_path / "migration-lifecycle.db"
+    try:
+        yield database_path
+    finally:
+        database_path.unlink(missing_ok=True)
+        assert not database_path.exists()
+
+
+def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> None:
+    database_path = migration_database_path
     config = alembic_config(database_path)
 
     command.upgrade(config, "head")
