@@ -16,13 +16,13 @@
 
 验收：后端和前端可本地启动；健康检查端到端可见；后端测试/Ruff/mypy、前端测试/类型检查/构建实际通过。
 
-## 阶段 2：实现核心数据库模型（当前完成）
+## 阶段 2：实现核心数据库模型（已完成）
 
 范围：SourceFile、Conversation、Participant、Message、Evidence、Insight、InsightEvidence、ProfileSnapshot；普通 Conversation/Participant 关联表；同步 SQLAlchemy、Pydantic、Alembic 和 Session 工厂。本阶段没有真实用例，因此不创建 Service/Repository。
 
 验收：迁移可在空 SQLite 上升级并回滚；约束、索引、UTC 时间、metadata 命名、Evidence 追溯和受控删除测试通过。不建立通用 Repository 框架。
 
-## 阶段 3：实现通用聊天导入器
+## 阶段 3：实现通用聊天导入器（当前完成）
 
 范围：插件式 Parser、canonical schema、JSON/CSV/纯文本、文件 hash、导入统计、合成样本；WeFlow 只返回明确未支持。
 
@@ -92,4 +92,4 @@
 
 ## 当前下一单一任务
 
-执行 **阶段 3：实现通用聊天导入器**，只建立 Parser 协议、canonical schema、JSON/CSV/纯文本解析和合成测试样本；Parser 不写数据库，不提前实现上传 API、Cleaner、模型调用或界面业务功能。
+执行 **阶段 4：实现数据清洗 Pipeline**，只建立独立、可配置、可测试且保持 raw 不变的 Cleaner 和统计；不实现上传 API、数据库写入、模型调用、Insight、Profile 或前端业务页面。

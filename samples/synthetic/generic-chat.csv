@@ -1,0 +1,4 @@
+conversation_id,conversation_title,platform,message_id,sender_id,sender_name,is_profile_owner,timestamp,message_type,content,reply_to_message_id
+conversation-1,Synthetic conversation,generic,message-1,person-a,Person A,true,2026-07-16T10:20:00+08:00,text,Synthetic message one,
+conversation-1,Synthetic conversation,generic,message-2,person-b,Person B,false,2026-07-16T10:21:00+08:00,text,Synthetic reply two,message-1
+conversation-2,Synthetic second conversation,generic,message-1,person-a,Person A,true,2026-07-17T09:00:00+08:00,text,Synthetic message in another conversation,

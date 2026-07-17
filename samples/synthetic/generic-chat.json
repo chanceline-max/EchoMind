@@ -1,0 +1,31 @@
+{
+  "format": "echomind-generic-chat",
+  "version": "1.0",
+  "platform": "generic",
+  "conversations": [
+    {
+      "id": "conversation-1",
+      "title": "Synthetic conversation",
+      "participants": [
+        {"id": "person-a", "name": "Person A", "aliases": [], "is_profile_owner": true, "metadata_json": {}},
+        {"id": "person-b", "name": "Person B", "aliases": [], "is_profile_owner": false, "metadata_json": {}}
+      ],
+      "messages": [
+        {"id": "message-1", "sender_id": "person-a", "timestamp": "2026-07-16T10:20:00+08:00", "type": "text", "content": "Synthetic message one", "reply_to_message_id": null, "metadata_json": {}},
+        {"id": "message-2", "sender_id": "person-b", "timestamp": "2026-07-16T02:21:00Z", "type": "text", "content": "Synthetic reply two", "reply_to_message_id": "message-1", "metadata_json": {}}
+      ],
+      "metadata_json": {}
+    },
+    {
+      "id": "conversation-2",
+      "title": "Synthetic second conversation",
+      "participants": [
+        {"id": "person-a", "name": "Person A", "aliases": [], "is_profile_owner": true, "metadata_json": {}}
+      ],
+      "messages": [
+        {"id": "message-1", "sender_id": "person-a", "timestamp": "2026-07-17T09:00:00+08:00", "type": "text", "content": "Synthetic message in another conversation", "reply_to_message_id": null, "metadata_json": {}}
+      ],
+      "metadata_json": {}
+    }
+  ]
+}

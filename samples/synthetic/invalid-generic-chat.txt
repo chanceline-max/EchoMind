@@ -1,0 +1,4 @@
+# conversation: conversation-1
+# platform: generic
+# participant: person-a|Person A|owner
+[message-1][not-a-time] <person-a> Synthetic invalid timestamp

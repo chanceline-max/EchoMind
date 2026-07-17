@@ -1,0 +1,8 @@
+# conversation: conversation-1
+# title: Synthetic conversation
+# platform: generic
+# timezone: Asia/Shanghai
+# participant: person-a|Person A|owner
+# participant: person-b|Person B|other
+[message-1][2026-07-16 10:20:00] <person-a> Synthetic message one
+[message-2][2026-07-16 10:21:00] <person-b> Synthetic message two

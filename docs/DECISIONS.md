@@ -110,9 +110,19 @@
 - 原因：这些选择足以约束阶段 2 的证据链，同时避免数据库专用 UUID、重复源文件、虚假的语义保证和提前设计置信度算法。
 - 后果：Conversation/Participant 的 ORM 多对多集合是只读关系，关联写入留给后续明确的 Service，避免 ORM 自动删除关联行绕过 RESTRICT。Message 回复目标是否属于同一 Conversation，以及 Insight 七类语义、证据状态传播和 Profile 失效传播，也必须由后续可测试 Service 实现；当前数据库不声称已保证这些业务规则。
 
+## ADR-017：阶段 3 使用精确、数据库无关的 Parser 契约
+
+- 状态：Accepted
+- 日期：2026-07-17
+- 决策：Parser 采用仓库内确定性 Registry 和独立 Pydantic Canonical Schema。只支持文档精确定义的通用 JSON、固定表头 CSV 和固定纯文本 1.0；格式识别使用扩展名与最多 8192 字节轻量签名，不使用注册顺序兜底或模糊日期/编码识别。
+- 决策：原始字节 SHA-256 以 64 KiB 分块计算；消息输出按 `(timestamp, source_order)` 稳定排序，Parser 阶段的 `normalized_content` 必须等于 `raw_content`。strict/lenient 只影响可恢复的单条记录，整体结构和 Canonical 不一致始终失败。
+- 决策：Windows 使用标准库 `zoneinfo` 时增加 `tzdata` 运行依赖，保证 IANA 时区在不同机器上有一致数据源。WeFlow 在获得授权且彻底脱敏样本前保持 `available=false` 并返回 `sample_required`。
+- 原因：精确契约可测试、可解释且不会伪造第三方兼容性；独立 Canonical 层防止解析阶段绕过阶段 2 的证据链约束或产生数据库副作用。Windows Python 通常不内置 IANA 时区库，单靠标准库 API 无法可靠解析 `Asia/Shanghai`。
+- 后果：阶段 3 不提供上传、数据库写入、清洗或真实 WeFlow 映射。新格式必须通过独立 Parser、可靠签名、完整文档和合成/脱敏契约测试加入。
+
 ## 尚未决策
 
-1. 阶段 3/5 的文件大小、消息数和单条正文长度限制。
+1. 阶段 5 的文件大小、消息数和单条正文长度限制。
 2. hypothesis 的初始置信度上限及各类型阈值，需要阶段 8 用性质测试确定。
 3. 获得授权脱敏 WeFlow 样本后的真实字段映射。
 4. 项目开源许可证。
