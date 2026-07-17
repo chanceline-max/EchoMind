@@ -139,6 +139,16 @@
 - 原因：当前限制下同步处理能够提供真实状态和原子失败语义；任务表或伪造服务端阶段进度没有当前恢复用例。
 - 后果：刷新不能恢复失败请求；成功结果通过 SourceFile ID 重读。真正需要后台恢复时再设计 ImportJob。
 
+## ADR-020：阶段 6 使用同步、严格结构化且双重授权的 Provider 边界
+
+- 状态：Accepted
+- 日期：2026-07-18
+- 决策：业务层只依赖同步 `LLMProvider.generate_structured(LLMRequest, response_schema)` 和 EchoMind 自有 Schema。默认 Provider 是完全离线、确定性的 Mock；远程实现使用可注入 Transport 的最小 OpenAI-compatible HTTP，不引入厂商 SDK；Local 实现保持 `available=false`。
+- 决策：远程调用必须同时满足服务端 `remote_enabled` 与逐请求 `remote_consent`。endpoint/model/SecretStr Key 只来自服务端 Settings；endpoint 默认 HTTPS、禁止 URL 凭据/fragment/重定向，本地 HTTP 必须显式开启且仅限 loopback。请求先经过字符/消息/Schema/输出预算，响应先经过解压后字节上限，再做纯 JSON 与 strict Pydantic 验证。
+- 决策：只对 408、429、500、502、503、504、超时和临时连接错误执行无 jitter 的有限指数退避；测试注入 no-op Sleeper 和 `httpx.MockTransport`。Provider 不读 ORM、数据库、Repository、文件或全局聊天内容，不缓存或记录 prompt/响应。
+- 原因：在阶段 7 构造真实分析窗口前，先把供应商耦合、默认离线、授权、SSRF 基础边界、资源上限和不可信输出验证做成独立、可测试的基础设施。
+- 后果：字符预算不是 tokenizer；OpenAI-compatible 服务的 JSON Schema 能力仍可能不同；HTTPS DNS 重绑定未由应用层完全防御；阶段 6 没有模型调用 API、前端配置、Insight 或 Evidence。
+
 ## 尚未决策
 
 1. hypothesis 的初始置信度上限及各类型阈值，需要阶段 8 用性质测试确定。

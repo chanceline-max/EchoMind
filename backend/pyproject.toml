@@ -12,6 +12,7 @@ dependencies = [
     "alembic>=1.18.5,<2",
     "fastapi>=0.139.2,<0.140",
     "fastapi-cli>=0.0.32,<0.1",
+    "httpx>=0.28.1,<0.29",
     "pydantic-settings>=2.14.2,<3",
     "python-multipart>=0.0.22,<0.1",
     "sqlalchemy>=2.0.51,<2.1",
@@ -21,7 +22,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "httpx>=0.28.1,<0.29",
     "mypy>=2.3,<3",
     "pytest>=9.1.1,<10",
     "ruff>=0.15.21,<0.16",

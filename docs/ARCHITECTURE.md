@@ -129,18 +129,28 @@ eligible messages → deterministic chunks → overlapping context windows
 
 ```python
 class LLMProvider(Protocol):
-    provider_id: str
+    provider_name: ClassVar[str]
+    provider_version: ClassVar[str]
+    supports_remote_calls: ClassVar[bool]
+    supports_structured_output: ClassVar[bool]
 
-    async def extract_insights(
+    def generate_structured(
         self,
-        request: ExtractionRequest,
-    ) -> ExtractionResponse: ...
+        request: LLMRequest,
+        response_schema: type[ResponseModelT],
+    ) -> LLMResult[ResponseModelT]: ...
 ```
 
-- `MockLLMProvider`：固定、确定性、离线，用于测试和演示。
-- `OpenAICompatibleProvider`：只定义配置和 HTTP 适配边界；用户主动启用后使用。
-- `LocalModelProvider`：定义本地模型进程/HTTP 边界，不绑定某个运行时。
-- Provider 不得自行读数据库或文件；不得记录 prompt 正文。
+- `LLMRequest` 只允许独立 system instruction 和 `user` 消息；不支持 assistant history、tool/function、stream 或自由文本返回。`LLMResult[T]` 的 output 已经由调用方 Pydantic Schema 以 strict 模式验证。
+- `MockLLMProvider` 是默认值：固定 fixture/scenario、确定性、离线，不读取 API Key，用于测试和演示。
+- `OpenAICompatibleProvider` 使用项目已有 httpx 的最小 Chat Completions JSON Schema 请求，不引入厂商 SDK。Factory 只构造对象、不探测连接；Transport 禁止重定向，测试注入 `httpx.MockTransport`。
+- 远程调用在 Provider 内再次要求 `remote_enabled=true` 和逐请求 `remote_consent=true`，任一缺失都在预算与网络调用前失败。endpoint/model/Key 只来自服务端 Settings，调用方不能覆盖 endpoint。
+- endpoint 默认 HTTPS；HTTP 只允许显式开启的 localhost/127.0.0.1/::1。禁止非 HTTP(S)、相对 URL、URL 凭据、fragment 和超长 URL。当前不声称防御 HTTPS DNS 重绑定。
+- 预算按 system/user 字符、消息数、单条字符、Schema 字符和输出 token 上限确定性预检；字符数不等于 token 数。远程响应按 httpx 解压后的字节数在 JSON 解析前限制为集中配置值。
+- 只重试 408、429、500、502、503、504、超时和临时连接错误；0.1/0.2/... 秒指数退避无 jitter 且可注入 Sleeper。授权、其他 4xx、重定向、预算、响应过大、JSON 和 Schema 错误不重试。
+- 结构化输出严格要求纯 JSON，不剥离 Markdown code fence，不修复或执行模型输出。错误只保留代码、请求 ID、次数、状态和受控计数/位置，不保留 prompt、响应、Header、Key、endpoint 或本机路径。
+- `LocalModelProvider` 当前 `available=False` 并返回 `local_provider_not_configured`；不会下载权重、扫描端口、启动线程或子进程。
+- Provider 包不得自行读数据库、ORM、Repository、上传文件或聊天文件；阶段 6 没有 Provider HTTP API、Insight/Evidence/Profile 业务和前端模型页面。
 
 ## 6. API 设计原则
 

@@ -40,11 +40,11 @@
 
 验收：文件类型/大小限制、路径安全、错误脱敏、失败恢复、重复导入、分页和排除流程测试通过。不实现 Insight。
 
-## 阶段 6：实现 LLM Provider 抽象
+## 阶段 6：实现 LLM Provider 抽象（已完成）
 
 范围：Base/Protocol、确定性 Mock、可配置 OpenAI-compatible、LocalModel 接口骨架；结构化输出、Pydantic 校验、超时和有限重试。
 
-验收：默认 Mock；测试网络被禁用；Key 仅从环境变量读取；日志无 Key/prompt；SDK 类型不进入业务层。
+验收：默认 Mock；远程双重授权、endpoint 基础安全、预算、响应大小、纯 JSON/Pydantic 验证、有限重试和安全错误均由断网测试覆盖；Key 仅从服务端环境读取；无 Key/prompt/响应泄露；SDK 类型不进入业务层。
 
 ## 阶段 7：实现候选 Insight 抽取
 
@@ -92,4 +92,4 @@
 
 ## 当前下一单一任务
 
-执行 **阶段 6：实现 LLM Provider 抽象**。开始前应定义统一 Provider 请求/响应 Schema、Mock Provider、用户显式启用边界、发送内容预览、Token 预算和失败重试；不得提前实现 Insight 抽取或 Profile。
+执行 **阶段 7：实现候选 Insight 抽取**。开始前应基于阶段 4 AnalysisUnit 与阶段 6 Provider 契约设计有限上下文、当前窗口 message ID 白名单、候选 Schema、Evidence 绑定、去重/幂等和失败恢复；AI 候选只能进入 proposed，不得提前实现置信度算法或 Profile。
