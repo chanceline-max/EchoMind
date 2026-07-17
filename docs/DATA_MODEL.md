@@ -25,7 +25,7 @@
 
 ImportJob、ExtractionRun、InsightRevision、InsightRelation 和 ProfileSnapshotInsight 不在阶段 2 创建：
 
-- ImportJob：阶段 5 导入状态真正需要时加入。
+- ImportJob：阶段 5 采用同步请求且没有恢复需求；仅在后续出现真实异步/恢复用例时再评估。
 - ExtractionRun：阶段 7 抽取恢复与幂等需要时加入。
 - InsightRevision、InsightRelation：阶段 9 审核和 supersede 需要时加入。
 - ProfileSnapshotInsight：阶段 10 生成快照并验证追溯时加入。
@@ -54,7 +54,7 @@ ProfileSnapshot stores versioned output (links added in stage 10)
 | filename | string | 仅原文件名，不保存客户端绝对路径 |
 | file_type | string | json/csv/text/weflow/unknown |
 | file_hash | string | SHA-256，全局唯一 |
-| storage_path | string | data 目录内的受控相对路径 |
+| storage_path | nullable string | 预留受控相对路径；阶段 5 默认为 null，不长期保存原上传文件 |
 | byte_size | integer | 非负 |
 | imported_at | datetime | UTC |
 | parser_name | string | 解析器稳定 ID |
@@ -65,7 +65,7 @@ ProfileSnapshot stores versioned output (links added in stage 10)
 
 唯一约束：`file_hash`。相同原始字节不会因 Parser 名称或版本不同而重复创建 SourceFile；未来重跑解析的版本信息不通过复制源文件记录表达。
 
-应用接收上传后先对原始字节计算 file_hash，再进行编码检测或解析。进入 ready 状态的 SourceFile 必须保留原始字节；任何 Parser/Cleaner 不得就地修改该文件。
+应用接收上传后先对临时原始字节计算 `file_hash`，再解析和清洗。阶段 5 在请求结束时删除上传临时副本；`SourceFile` 保留哈希、字节数、版本和统计，消息级 `raw_content` 原样入库。如未来允许保留原文件，必须由用户显式启用并使用受控相对路径。
 
 ### Conversation
 
@@ -87,15 +87,22 @@ id、canonical_name、aliases(JSON array)、is_profile_owner、created_at、meta
 | sender_id | UUID | FK Participant |
 | timestamp | datetime nullable | 无法解析时保留错误元数据 |
 | sequence_index | integer | 同会话稳定顺序 |
-| message_type | enum | text/image/file/system/recalled/unknown |
+| source_order | integer | Parser 原始记录顺序，不因跳过记录重编号 |
+| source_location | string nullable | 安全结构位置，不得包含绝对路径 |
+| message_type | enum | text/image/file/audio/video/system/recalled/other/unknown |
 | raw_content | text | 永不被清洗覆盖 |
 | normalized_content | text | 可从 raw + pipeline 版本重建 |
 | reply_to_message_id | UUID nullable | 自引用 FK |
+| duplicate_of_message_id | UUID nullable | 指向同会话更早消息的自引用 FK |
+| is_system_message | boolean | Cleaner 分类结果 |
+| is_recalled_message | boolean | Cleaner 分类结果 |
 | is_deleted | boolean | 源数据标记，不代表物理删除 |
 | excluded_from_analysis | boolean | 用户控制 |
 | exclusion_reason | string nullable | 不保存多余敏感正文 |
+| exclusion_reasons_json | JSON array | 完整可解释排除原因 |
 | archived_at | datetime nullable | 应用归档状态；原文仍保留 |
 | normalization_version | string | 清洗版本 |
+| cleaning_operations_json | JSON array | 规范化操作追溯，不保存额外正文 |
 | metadata_json | JSON | Python 属性；数据库列名为 metadata |
 
 唯一约束：`(conversation_id, source_message_id)`；若源无 ID，使用 `conversation + sender + timestamp + sequence + content hash` 的确定性 ID。Conversation、Participant 外键使用 `ON DELETE RESTRICT`。

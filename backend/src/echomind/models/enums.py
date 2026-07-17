@@ -28,8 +28,11 @@ class MessageType(StrEnum):
     TEXT = "text"
     IMAGE = "image"
     FILE = "file"
+    AUDIO = "audio"
+    VIDEO = "video"
     SYSTEM = "system"
     RECALLED = "recalled"
+    OTHER = "other"
     UNKNOWN = "unknown"
 
 

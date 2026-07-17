@@ -20,21 +20,33 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture
-def settings() -> Settings:
+def settings(tmp_path: Path) -> Settings:
+    upload_root = tmp_path / "uploads"
+    upload_root.mkdir()
     return Settings(
         app_name="EchoMind API Test",
         app_version="0.1.0-test",
         api_v1_prefix="/api/v1",
         environment="test",
         frontend_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        database_url=f"sqlite:///{(tmp_path / 'api-test.db').as_posix()}",
+        import_temp_root=str(upload_root),
     )
 
 
 @pytest.fixture
 async def client(settings: Settings) -> AsyncIterator[AsyncClient]:
-    transport = ASGITransport(app=create_app(settings))
-    async with AsyncClient(transport=transport, base_url="http://testserver") as test_client:
-        yield test_client
+    app = create_app(settings)
+    Base.metadata.create_all(app.state.engine)
+    transport = ASGITransport(app=app)
+    try:
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as test_client:
+            yield test_client
+    finally:
+        app.state.engine.dispose()
 
 
 @pytest.fixture

@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -33,6 +34,7 @@ class Message(Base):
     __table_args__ = (
         CheckConstraint("length(trim(source_message_id)) > 0", name="source_id_not_empty"),
         CheckConstraint("sequence_index >= 0", name="sequence_index_non_negative"),
+        CheckConstraint("source_order >= 0", name="source_order_non_negative"),
         CheckConstraint(
             "length(trim(normalization_version)) > 0",
             name="normalization_version_not_empty",
@@ -42,6 +44,7 @@ class Message(Base):
             "source_message_id",
             name="uq_messages_conversation_source_id",
         ),
+        Index("ix_messages_conversation_source_order", "conversation_id", "source_order"),
     )
 
     id: Mapped[str] = mapped_column(String(UUID_LENGTH), primary_key=True, default=new_uuid)
@@ -60,6 +63,8 @@ class Message(Base):
     )
     timestamp: Mapped[datetime | None] = mapped_column(UTCDateTime(), index=True)
     sequence_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source_location: Mapped[str | None] = mapped_column(String(500))
     message_type: Mapped[MessageType] = mapped_column(
         Enum(
             MessageType,
@@ -79,10 +84,23 @@ class Message(Base):
         ForeignKey("messages.id", ondelete="RESTRICT"),
         index=True,
     )
+    duplicate_of_message_id: Mapped[str | None] = mapped_column(
+        String(UUID_LENGTH),
+        ForeignKey("messages.id", ondelete="RESTRICT"),
+        index=True,
+    )
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_system_message: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_recalled_message: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     archived_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     excluded_from_analysis: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     exclusion_reason: Mapped[str | None] = mapped_column(String(500))
+    exclusion_reasons_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    cleaning_operations_json: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
     normalization_version: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
@@ -106,6 +124,16 @@ class Message(Base):
     replies: Mapped[list["Message"]] = relationship(
         foreign_keys=[reply_to_message_id],
         back_populates="reply_to",
+        passive_deletes="all",
+    )
+    duplicate_of: Mapped["Message | None"] = relationship(
+        remote_side="Message.id",
+        foreign_keys=[duplicate_of_message_id],
+        back_populates="duplicates",
+    )
+    duplicates: Mapped[list["Message"]] = relationship(
+        foreign_keys=[duplicate_of_message_id],
+        back_populates="duplicate_of",
         passive_deletes="all",
     )
     evidences: Mapped[list["Evidence"]] = relationship(

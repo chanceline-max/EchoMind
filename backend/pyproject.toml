@@ -13,6 +13,7 @@ dependencies = [
     "fastapi>=0.139.2,<0.140",
     "fastapi-cli>=0.0.32,<0.1",
     "pydantic-settings>=2.14.2,<3",
+    "python-multipart>=0.0.22,<0.1",
     "sqlalchemy>=2.0.51,<2.1",
     "tzdata>=2025.2,<2027",
     "uvicorn>=0.51,<0.52",
