@@ -1,6 +1,6 @@
 # EchoMind backend
 
-阶段 9 的 FastAPI、数据库、Parser、Cleaning、同步导入、LLM Provider、候选 Insight、确定性置信度和本地审核工程。`src/echomind/services/insight_review_service.py` 提供受限编辑、状态转换、乐观并发和追加式历史；`evidence_validity_service.py` 负责消息排除到 Evidence/Insight/Confidence 的同事务传播。
+阶段 10 的 FastAPI 模块化单体。除 Parser、Cleaning、同步导入、Provider、候选 Insight、Confidence 和本地审核外，`src/echomind/profiling/` 提供 confirmed-only 选择、共享文档、稳定引用、双 renderer、指纹、不可变快照和动态 stale；生成不调用 Provider 或读取 raw_content。
 
 Parser 支持 `generic-json`、`generic-csv` 和 `generic-text` 1.0，输出严格 Canonical Chat Schema、原始字节 SHA-256、警告和解析统计。`weflow` 仅返回 `sample_required`，未标记为可用。Parser 不导入 SQLAlchemy Session、不写数据库、不访问网络、不记录聊天正文，也不执行 Cleaner。
 
@@ -21,8 +21,9 @@ pytest tests/parsers
 pytest tests/cleaning
 pytest tests/providers
 pytest tests/review
+pytest tests/profiling
 ```
 
 默认数据库地址为 `sqlite:///./data/echomind.db`。应用启动不会自动迁移；在 `backend/` 中先创建 `data` 目录，再运行 `alembic upgrade head`。pytest 数据库测试全部使用各自的临时 SQLite 文件。
 
-当前提供 Insight 只读/审核 API，但仍不包含 Extraction、Provider 或独立置信度 HTTP API、用户置信度 override、Profile、Local 模型运行或远程自动调用。安装、启动、公式、Provider 配置和完整检查命令见仓库根目录的 `README.md`。
+当前提供 Insight 审核与 Profile 生成/读取/Markdown/JSON 导出 API，但不包含 Profile PATCH/DELETE、proposed Profile、PDF/Word、云分享、Extraction/Provider/独立置信度 HTTP API、用户置信度 override、Local 模型运行或远程自动调用。安装、启动和完整检查命令见仓库根目录的 `README.md`。

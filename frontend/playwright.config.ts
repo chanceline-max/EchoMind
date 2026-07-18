@@ -7,8 +7,8 @@ const frontendDirectory = path.dirname(fileURLToPath(import.meta.url));
 const backendDirectory = path.resolve(frontendDirectory, "..", "backend");
 const backendCommand =
   process.platform === "win32"
-    ? ".\\.venv\\Scripts\\python.exe -c \"from pathlib import Path; Path(r'data/playwright-stage9.db').unlink(missing_ok=True)\" && .\\.venv\\Scripts\\python.exe -m alembic upgrade head && .\\.venv\\Scripts\\python.exe ..\\scripts\\seed_stage9_e2e.py && .\\.venv\\Scripts\\python.exe -m uvicorn echomind.main:app --host 127.0.0.1 --port 8000"
-    : "./.venv/bin/python -c \"from pathlib import Path; Path('data/playwright-stage9.db').unlink(missing_ok=True)\" && ./.venv/bin/python -m alembic upgrade head && ./.venv/bin/python ../scripts/seed_stage9_e2e.py && ./.venv/bin/python -m uvicorn echomind.main:app --host 127.0.0.1 --port 8000";
+    ? ".\\.venv\\Scripts\\python.exe -c \"from pathlib import Path; Path(r'data/playwright-stage10.db').unlink(missing_ok=True)\" && .\\.venv\\Scripts\\python.exe -m alembic upgrade head && .\\.venv\\Scripts\\python.exe ..\\scripts\\seed_stage10_e2e.py && .\\.venv\\Scripts\\python.exe -m uvicorn echomind.main:app --host 127.0.0.1 --port 8000"
+    : "./.venv/bin/python -c \"from pathlib import Path; Path('data/playwright-stage10.db').unlink(missing_ok=True)\" && ./.venv/bin/python -m alembic upgrade head && ./.venv/bin/python ../scripts/seed_stage10_e2e.py && ./.venv/bin/python -m uvicorn echomind.main:app --host 127.0.0.1 --port 8000";
 const frontendCommand = `"${process.execPath}" ./node_modules/vite/bin/vite.js --host 127.0.0.1`;
 
 export default defineConfig({
@@ -26,7 +26,7 @@ export default defineConfig({
       cwd: backendDirectory,
       env: {
         ...process.env,
-        DATABASE_URL: "sqlite:///./data/playwright-stage9.db",
+        DATABASE_URL: "sqlite:///./data/playwright-stage10.db",
       },
       url: "http://127.0.0.1:8000/api/v1/health",
       reuseExistingServer: false,

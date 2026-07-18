@@ -23,12 +23,12 @@
 7. InsightEvidence
 8. ProfileSnapshot
 
-ImportJob、ExtractionRun、InsightRevision、InsightRelation 和 ProfileSnapshotInsight 不在阶段 2 创建：
+ImportJob、ExtractionRun、InsightRevision 和 InsightRelation 不在阶段 2 创建：
 
 - ImportJob：阶段 5 采用同步请求且没有恢复需求；仅在后续出现真实异步/恢复用例时再评估。
 - ExtractionRun：阶段 7 通过确定性窗口、精确指纹和窗口级事务满足同步恢复，不创建运行表；仅在后续出现持久任务状态需求时再评估。
 - InsightRevision、InsightRelation：阶段 9 审核和 supersede 需要时加入。
-- ProfileSnapshotInsight：阶段 10 生成快照并验证追溯时加入。
+- ProfileSnapshot 追溯：阶段 10 最终采用快照内安全 `source_manifest_json`，没有新增 ProfileSnapshotInsight 表。
 
 不得为这些后续模型提前创建空表或伪实现。阶段 2 使用普通 SQLAlchemy association table `conversation_participants` 表达 Conversation 与 Participant 的多对多关系；它没有独立 ORM 领域类或业务层，不算第九个模型。
 
@@ -163,15 +163,21 @@ insight_id、evidence_id、created_at；联合主键 `(insight_id, evidence_id)`
 
 ### ProfileSnapshot
 
-id、generated_at、profile_version、schema_version、markdown_content、json_content、source_range_start、source_range_end、statistics、limitations、evidence_state、invalidated_at、metadata_json。JSON 和时间范围均使用可移植类型；`generated_at` 建立索引。
+基础字段为 id、generated_at、profile_version、schema_version、markdown_content、json_content、source_range_start/end、statistics、limitations、evidence_state、invalidated_at、metadata_json。阶段 10 第六条迁移增加：
 
-阶段 2 仅建立快照容器。阶段 10 增加 ProfileSnapshotInsight 关联，冻结生成时的 Insight revision 和 Evidence ID。Evidence 后续失效时，不改写历史内容，但将快照标记 stale/invalid，并在查看或再次导出时显示“证据已失效”。
+- `source_fingerprint`、`generation_fingerprint`、`document_hash`：可空 64 位 SHA-256，兼容旧快照；新快照强制填写。
+- `generation_fingerprint` 唯一索引：并发/重复生成复用同一快照。
+- `generation_options_json`：只保存 scope、selected ID、partial/invalidated、evidence mode、reasoning 和 generated_as_of。
+- `source_manifest_json`：只保存安全追溯 ID、revision/status/evidence state/confidence、Evidence fingerprint/validity 和组件 Hash，不含正文。
+- `insight_count`、`evidence_count`、`source_status_at_generation=current`。
+
+阶段 10 采用安全 manifest 冻结来源，不新增 ProfileSnapshotInsight 表。Snapshot ORM 拒绝 update/delete；API 只创建和读取。current/stale/source unavailable 是读取时动态值，不写回历史行。Evidence 或 Insight 后续变化不会修改旧 markdown/json/document hash。
 
 ## 5. 删除、归档与证据失效
 
 - MVP UI/API 不提供 SourceFile、Conversation、Message、Evidence 或 AI Insight 的不可逆物理删除。
 - SourceFile/Conversation/Message 使用 archived 状态；Message 另有 excluded_from_analysis。归档和排除不修改 raw_content、normalized_content 或 file_hash。
-- 阶段 9 的 Message 排除 Service 已在同一事务中更新相关 Evidence、活动 Insight 的 confidence/evidence_state 和系统 Revision；rejected/superseded 只重算 evidence_state，不自动恢复。ProfileSnapshot 传播留到阶段 10。
+- 阶段 9 的 Message 排除 Service 已更新 Evidence、活动 Insight 和 Revision；阶段 10 通过 source manifest 动态识别受影响 Snapshot 为 stale，不回写历史档案。
 - 数据库外键对核心证据链使用 `RESTRICT`，禁止由 ORM cascade 或数据库 cascade 无提示破坏链路。
 - 如果未来增加物理删除，必须先提供影响预览：SourceFile、Conversation、Message、Evidence、Insight、ProfileSnapshot 数量及 ID；用户二次确认后由专用服务在事务内执行，并保留不含正文的结果统计。
 - ProfileSnapshot 含敏感正文，采用与聊天数据相同的本地保护。证据失效的历史快照可以作为历史记录查看，但必须醒目标记，不能作为当前有效档案导出。

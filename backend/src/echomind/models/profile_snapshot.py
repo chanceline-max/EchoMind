@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, Enum, String, Text
+from sqlalchemy import JSON, CheckConstraint, Enum, Integer, String, Text, event
 from sqlalchemy.orm import Mapped, mapped_column
 
 from echomind.db.base import Base
@@ -26,6 +26,28 @@ class ProfileSnapshot(Base):
         CheckConstraint(
             "evidence_state != 'invalid' OR invalidated_at IS NOT NULL",
             name="invalid_profile_has_timestamp",
+        ),
+        CheckConstraint(
+            "source_fingerprint IS NULL OR length(source_fingerprint) = 64",
+            name="source_fingerprint_sha256_length",
+        ),
+        CheckConstraint(
+            "generation_fingerprint IS NULL OR length(generation_fingerprint) = 64",
+            name="generation_fingerprint_sha256_length",
+        ),
+        CheckConstraint(
+            "document_hash IS NULL OR length(document_hash) = 64",
+            name="document_hash_sha256_length",
+        ),
+        CheckConstraint(
+            "insight_count IS NULL OR insight_count >= 0", name="insight_count_non_negative"
+        ),
+        CheckConstraint(
+            "evidence_count IS NULL OR evidence_count >= 0", name="evidence_count_non_negative"
+        ),
+        CheckConstraint(
+            "source_status_at_generation IS NULL OR source_status_at_generation = 'current'",
+            name="source_status_at_generation_current",
         ),
     )
 
@@ -63,3 +85,21 @@ class ProfileSnapshot(Base):
         nullable=False,
         default=dict,
     )
+    source_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    generation_fingerprint: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    document_hash: Mapped[str | None] = mapped_column(String(64))
+    generation_options_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    source_manifest_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    insight_count: Mapped[int | None] = mapped_column(Integer)
+    evidence_count: Mapped[int | None] = mapped_column(Integer)
+    source_status_at_generation: Mapped[str | None] = mapped_column(String(32))
+
+
+@event.listens_for(ProfileSnapshot, "before_update")
+def _reject_profile_snapshot_update(*_: object) -> None:
+    raise ValueError("ProfileSnapshot is immutable")
+
+
+@event.listens_for(ProfileSnapshot, "before_delete")
+def _reject_profile_snapshot_delete(*_: object) -> None:
+    raise ValueError("ProfileSnapshot is immutable")

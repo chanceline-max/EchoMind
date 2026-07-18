@@ -64,11 +64,11 @@
 
 验收：迁移回环、状态转换、并发 409、Revision 不可更新、Evidence 传播、Confidence 集成、前端运行时验证及阶段 5/9 E2E 通过；没有物理删除、Profile 或模型调用 API。
 
-## 阶段 10：生成 EchoProfile
+## 阶段 10：生成 EchoProfile（已完成）
 
-范围：共享中间 schema、Markdown/JSON、ProfileSnapshot、预览与导出。
+已实现：confirmed-only 选择、共享 `EchoProfileDocument`、稳定 I/E 引用、确定性 Markdown/JSON、安全转义、Source/Generation Fingerprint、Document Hash、不可变 ProfileSnapshot、动态 stale、Profile API/UI 与显式导出。
 
-验收：默认 confirmed-only；显式设置可纳入带标记的高置信度 proposed；两种格式语义一致、可追溯、稳定并通过 schema。
+验收：只纳入 confirmed；valid/partial/invalid 分区明确；两种格式语义一致、可追溯、稳定并通过 schema；相同来源/选项复用快照；阶段 5/9/10 E2E 通过。当前无 proposed Profile、编辑、删除、PDF/Word 或云分享。
 
 ## 阶段 11：端到端 MVP 验收
 
@@ -92,4 +92,4 @@
 
 ## 当前下一单一任务
 
-执行 **阶段 10：生成 EchoProfile**。只读取允许进入档案的 Insight，以共享中间 Schema 生成可追溯的 Markdown/JSON 和 ProfileSnapshot；默认 confirmed-only，并明确处理 Evidence 失效。不得提前进入阶段 11 完整 MVP 审计。
+执行 **阶段 11：端到端 MVP 验收**。只按 `PRODUCT_SPEC.md` 自动化验收矩阵审计完整离线闭环并生成 `MVP_AUDIT.md`；仅修复阻断闭环或数据安全的问题，不继续增加大型功能。

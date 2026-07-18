@@ -9,6 +9,7 @@ export function Layout() {
           <NavLink to="/import">导入</NavLink>
           <NavLink to="/conversations">会话</NavLink>
           <NavLink to="/insights">Insight 审核</NavLink>
+          <NavLink to="/profiles">Profiles</NavLink>
         </nav>
       </header>
       <Outlet />

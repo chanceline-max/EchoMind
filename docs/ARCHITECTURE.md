@@ -154,7 +154,20 @@ explicit Insight IDs + as_of → content-free database snapshot
 
 ### 4.4 Profile 生成
 
-只读取允许进入档案的 Insight。正式导出默认仅包含 confirmed；用户显式启用后可纳入达到阈值的 proposed，但必须逐条标记为未确认。系统按 schema 生成中间结构，再由两个 renderer 分别输出 Markdown 和 JSON，避免语义漂移。
+```text
+confirmed Insight + local Evidence → safe source snapshot
+→ profile-source-1.0 → section routing + stable I/E references
+→ EchoProfileDocument → Markdown + JSON → document hash
+→ profile-generation-1.0 unique reuse → immutable ProfileSnapshot
+```
+
+- `confirmed-only-1.0` 是阶段 10 唯一策略；proposed/rejected/superseded 和 confidence 门槛均不参与选择。
+- Repository 只读取生成所需字段，不读取 raw_content、Participant 姓名、文件名或路径。references 不复制 excerpt；excerpts 只复制阶段 7 已持久化 excerpt。
+- 选择、章节路由、引用、指纹、双 renderer、持久化和 HTTP API 分层；FastAPI 路由不拼装档案正文。
+- Markdown/JSON 只从严格 `EchoProfileDocument` 渲染；JSON 使用规范化键序，Markdown 对控制字符、HTML 和 URL scheme 安全处理。
+- Source fingerprint 覆盖当前审核/证据来源；generation fingerprint 覆盖来源、选项和 renderer 版本并有唯一索引；document hash 校验冻结 JSON 完整性。
+- Snapshot 在短写事务前重验来源，最多重试一次；并发唯一冲突返回已存在快照。ORM 拒绝 Snapshot update/delete。
+- stale 在读取时用原选项动态计算；历史 JSON/Markdown/Hash 永不回写。列表只返回安全摘要，详情返回结构化文档，导出必须由用户显式点击。
 
 ## 5. LLMProvider 边界
 
@@ -187,7 +200,7 @@ class LLMProvider(Protocol):
 
 - 前缀 `/api/v1`；OpenAPI 是前后端契约来源。
 - 阶段 1 已实现 `GET /api/v1/health`，固定返回 `status`、`service`、`version` 三个公开字段；响应由 Pydantic Schema 校验，不包含环境配置。
-- 阶段 5 提供导入、会话和消息接口；阶段 9 增加 Insight 列表/详情/Revision、审核动作及消息定位。没有 Insight、Evidence 或 Revision DELETE 路由。
+- 阶段 5 提供导入、会话和消息接口；阶段 9 增加 Insight 审核；阶段 10 增加 Profile 生成、列表、详情和显式 Markdown/JSON 导出。没有 Profile PATCH/DELETE。
 - 列表 API 使用稳定排序和 limit/offset 分页，避免一次返回全部消息。
 - 错误使用统一安全结构：`error_code`、`message`、`recoverable`、可选安全文件名/结构位置和 `details`。
 - 修改 Insight 使用乐观并发版本号，防止覆盖用户刚完成的编辑。
@@ -235,6 +248,6 @@ archive/exclude Message
 
 - MVP 没有证据链实体的物理删除 API。
 - SourceFile、Conversation、Message、Evidence、Insight 之间使用限制删除语义，不使用数据库级联删除。
-- 阶段 9 已实现 Message 排除/恢复的事务性 Evidence 与 Insight 传播；ProfileSnapshot 失效传播属于阶段 10。原始文件、raw_content、normalized_content、reply 和 file_hash 不得改变。
+- 阶段 9 已实现 Message 排除/恢复的事务性 Evidence 与 Insight 传播；阶段 10 在读取 ProfileSnapshot 时动态检测 stale/source unavailable，不修改历史内容。原始文件、raw_content、normalized_content、reply 和 file_hash 不得改变。
 - 历史 Profile 内容不被静默改写；后续查看必须展示证据失效状态，新的正式导出排除 `evidence_state=invalid` 的结论。
 - 未来物理删除必须先计算依赖图和数量、向用户展示、二次确认，再由专用 Service 执行。

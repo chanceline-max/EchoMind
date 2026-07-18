@@ -10,7 +10,7 @@ const result = spawnSync(process.execPath, [playwrightCli, "test"], {
   stdio: "inherit",
 });
 
-await rm(path.resolve(frontendRoot, "../backend/data/playwright-stage9.db"), { force: true });
+await rm(path.resolve(frontendRoot, "../backend/data/playwright-stage10.db"), { force: true });
 await rm(path.resolve(frontendRoot, "test-results"), { force: true, recursive: true });
 await rm(path.resolve(frontendRoot, "playwright-report"), { force: true, recursive: true });
 

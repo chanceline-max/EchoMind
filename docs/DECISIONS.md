@@ -48,7 +48,7 @@
 
 ## ADR-008：默认 confirmed-only Profile
 
-- 状态：Accepted
+- 状态：Superseded by ADR-024
 - 决策：默认只有 confirmed Insight 进入正式 Profile；用户可在预览中临时包含 proposed，但导出需明确标记。
 - 原因：符合人机协作和避免把 AI 候选当真相的原则。显式设置可纳入达到阈值的 proposed，但必须逐条标记未确认。
 
@@ -181,6 +181,18 @@
 - 决策：审核 API/UI 默认本地、敏感响应 no-store、浏览器查询仅内存；Evidence 参与者只显示匿名角色。rejected/superseded 不删除 Insight、Evidence 或历史，不提供物理删除 API。
 - 原因：单用户本地 SQLite 仍可能有两个标签页并发编辑；条件 revision 比最后写入获胜更可解释。原因集合避免消息恢复错误覆盖其他失效来源，append-only 历史让用户和系统传播都可追溯。
 - 后果：当前没有批量审核、多用户 actor 身份、用户 confidence override、直接 Evidence 编辑或 Profile。SQLite 写入仍应保持短事务；Profile 对 Evidence 失效的处理留给阶段 10。
+
+## ADR-024：阶段 10 使用 confirmed-only 单一文档与不可变指纹快照
+
+- 状态：Accepted
+- 日期：2026-07-21
+- 决策：阶段 10 只支持 `confirmed-only-1.0`；proposed、rejected、superseded 不进入 Profile，confidence 不作纳入门槛。ADR-008 中 proposed 预览/导出的例外不再属于 MVP。
+- 决策：一个严格 `EchoProfileDocument` 同时驱动 Markdown 和 JSON；正文排序后分配 I 编号，去重 Evidence 稳定分配 E 编号。references 默认不复制 excerpt，excerpts 必须显式选择并二次提醒。
+- 决策：`profile-source-1.0` 覆盖当前审核与证据来源，`profile-generation-1.0` 覆盖来源、选项和 renderer 版本并建立唯一索引，`profile-document-sha256` 校验规范化 JSON。Document Hash 计算时将自身字段规范为空字符串，避免自引用。
+- 决策：ProfileSnapshot 原子保存双渲染、选项、安全 manifest、指纹和计数，ORM 拒绝 update/delete。历史来源变化只在读取时动态返回 current/stale/source unavailable 和安全 reason code，不回写正文或 Hash。
+- 决策：Profile 生成不调用 Provider、不访问网络、不读取 raw_content/Participant 姓名/文件名/路径。API 只提供生成、分页读取、详情及显式 Markdown/JSON 下载，不提供 PATCH/DELETE。
+- 原因：用户审核状态必须是档案入口的唯一真值；共享结构和三层指纹使语义一致、幂等、完整性和 stale 都可测试；不可变历史避免证据变化静默重写过去。
+- 后果：`generated_as_of` 是 generation options 的一部分；相同来源但不同该值可形成不同历史快照。当前没有 proposed Profile、Profile 编辑、Snapshot 删除、PDF/Word、云分享或公开链接；这些都需新的产品和隐私决策。
 
 ## 尚未决策
 

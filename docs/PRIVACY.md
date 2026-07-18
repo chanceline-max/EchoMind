@@ -102,6 +102,16 @@ data/
 - 审核不会调用 Provider 或网络模型；E2E 数据由正式本地 Import、离线 Mock Extraction 和 Confidence Service 创建，测试完成后数据库、上传临时目录和 Playwright 结果自动清理。
 - rejected、superseded、消息排除和 Evidence 失效都不是删除。恢复消息只移除用户排除及其派生的 `source_message_excluded`，其他自动或人工原因继续保留。
 
+### 阶段 10 Profile 隐私边界
+
+- Profile 生成完全离线，不导入 Provider、HTTP client 或模型 Factory；只读取 confirmed Insight 和本地 Evidence 结构。
+- references 是默认模式，不复制 Evidence excerpt；excerpts 必须由用户显式选择并二次确认，只复制既有 excerpt，不读取 raw_content 或重新从 Message 生成。
+- Profile 不含 Participant 姓名、SourceFile filename、路径、source_message_id/source_location、cleaning operations、Prompt、Provider 响应、API Key、review note 或 Revision 历史。
+- Source manifest 不保存 title、statement、reasoning 或 excerpt；这些内容只参与单向 SHA-256 组件计算。Profile 本身及 Snapshot 仍是高敏感派生数据。
+- Profile API 与导出统一 `no-store/no-cache`；导出使用通用 UTC 日期文件名和 `nosniff`，不含姓名、会话标题或文件名。
+- 前端只使用短期内存 Query；不预取导出、不把 Document/Markdown/JSON 写入 localStorage、sessionStorage、IndexedDB、Service Worker、URL 或 console。Markdown 只在用户点击后用 `<pre>` 显示。
+- Snapshot 不可更新或删除；来源变化只动态显示 stale/source unavailable，历史正文不被静默修改。当前无云分享、公开链接、PDF/Word、遥测或崩溃上报。
+
 ### 阶段 4 清洗边界
 
 - Cleaning 只处理调用方已传入的 `ParsedChatFile` 内存对象；不扫描目录、不读取附件、不访问 URL、不调用网络、不创建缓存数据库。

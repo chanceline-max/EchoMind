@@ -8,6 +8,8 @@ import { ImportDetailPage } from "./pages/ImportDetailPage";
 import { ImportPage } from "./pages/ImportPage";
 import { InsightDetailPage } from "./pages/InsightDetailPage";
 import { InsightsPage } from "./pages/InsightsPage";
+import { ProfileDetailPage } from "./pages/ProfileDetailPage";
+import { ProfilesPage } from "./pages/ProfilesPage";
 
 const router = createBrowserRouter([
   {
@@ -21,6 +23,8 @@ const router = createBrowserRouter([
       { path: "conversations/:conversationId", element: <ConversationDetailPage /> },
       { path: "insights", element: <InsightsPage /> },
       { path: "insights/:insightId", element: <InsightDetailPage /> },
+      { path: "profiles", element: <ProfilesPage /> },
+      { path: "profiles/:profileId", element: <ProfileDetailPage /> },
     ],
   },
 ]);

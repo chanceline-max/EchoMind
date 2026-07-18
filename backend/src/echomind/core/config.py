@@ -150,6 +150,20 @@ class Settings(BaseSettings):
         le=16_777_216,
         validation_alias="LLM_MAX_RESPONSE_BYTES",
     )
+    profile_max_insights: int = Field(default=1_000, ge=1, validation_alias="PROFILE_MAX_INSIGHTS")
+    profile_max_evidence: int = Field(default=5_000, ge=1, validation_alias="PROFILE_MAX_EVIDENCE")
+    profile_max_json_bytes: int = Field(
+        default=5_242_880, ge=1_024, validation_alias="PROFILE_MAX_JSON_BYTES"
+    )
+    profile_max_markdown_bytes: int = Field(
+        default=5_242_880, ge=1_024, validation_alias="PROFILE_MAX_MARKDOWN_BYTES"
+    )
+    profile_max_statement_characters: int = Field(
+        default=10_000, ge=1, validation_alias="PROFILE_MAX_STATEMENT_CHARACTERS"
+    )
+    profile_max_reasoning_characters: int = Field(
+        default=5_000, ge=1, validation_alias="PROFILE_MAX_REASONING_CHARACTERS"
+    )
 
     @field_validator("api_v1_prefix")
     @classmethod

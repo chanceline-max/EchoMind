@@ -106,6 +106,23 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
         )
         snapshot_indexes = database_inspector.get_indexes("profile_snapshots")
         assert any(item["name"] == "ix_profile_snapshots_generated_at" for item in snapshot_indexes)
+        assert any(
+            item["name"] == "ix_profile_snapshots_generation_fingerprint" and item["unique"]
+            for item in snapshot_indexes
+        )
+        snapshot_columns = {
+            item["name"] for item in database_inspector.get_columns("profile_snapshots")
+        }
+        assert {
+            "source_fingerprint",
+            "generation_fingerprint",
+            "document_hash",
+            "generation_options_json",
+            "source_manifest_json",
+            "insight_count",
+            "evidence_count",
+            "source_status_at_generation",
+        } <= snapshot_columns
 
         for table_name in CORE_TABLES:
             for foreign_key in database_inspector.get_foreign_keys(table_name):
@@ -127,12 +144,54 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-        assert revision == "20260720_0005"
+        assert revision == "20260721_0006"
         assert CORE_TABLES <= set(inspect(engine).get_table_names())
     finally:
         engine.dispose()
 
     command.check(config)
+
+
+def test_stage_ten_upgrade_preserves_existing_profile_snapshot(
+    migration_database_path: Path,
+) -> None:
+    config = alembic_config(migration_database_path)
+    command.upgrade(config, "20260720_0005")
+    engine = create_engine(f"sqlite:///{migration_database_path.as_posix()}")
+    profile_id = "00000000-0000-0000-0000-000000000099"
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO profile_snapshots "
+                "(id, generated_at, profile_version, schema_version, markdown_content, "
+                "json_content, source_range_start, source_range_end, statistics, limitations, "
+                "evidence_state, invalidated_at, metadata) VALUES "
+                "(:id, :generated, 'legacy-profile', 'legacy-schema', '# Legacy', '{}', "
+                "NULL, NULL, '{}', '[]', 'valid', NULL, '{}')"
+            ),
+            {"id": profile_id, "generated": "2026-07-20 00:00:00"},
+        )
+    engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{migration_database_path.as_posix()}")
+    try:
+        with engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT markdown_content, source_fingerprint, generation_fingerprint "
+                    "FROM profile_snapshots WHERE id = :id"
+                ),
+                {"id": profile_id},
+            ).one()
+        assert row.markdown_content == "# Legacy"
+        assert row.source_fingerprint is None
+        assert row.generation_fingerprint is None
+    finally:
+        engine.dispose()
+
+    command.downgrade(config, "20260720_0005")
+    command.upgrade(config, "head")
 
 
 def test_stage_five_upgrade_preserves_existing_stage_two_message(
