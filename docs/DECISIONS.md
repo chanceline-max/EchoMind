@@ -159,8 +159,19 @@
 - 原因：单会话窗口降低误归因并简化局部 Evidence 白名单；本地 excerpt 防止模型伪造证据；精确指纹可解释、可测试且不会覆盖用户编辑；窗口短事务适配 SQLite，并保持阶段 7 无队列、无长期运行模型。
 - 后果：当前不能跨窗口/跨会话做语义聚合，机械规则不能证明独立事件或心理学真实性；远程 Provider 经授权后仍会收到当前窗口 `normalized_content`；没有分析 API、UI、最终置信度或 Profile。
 
+## ADR-022：阶段 8 使用 content-free、版本化的 confidence-1.0
+
+- 状态：Accepted
+- 日期：2026-07-19
+- 决策：最终 confidence 只由本地结构化 Evidence 特征确定性计算。普通类型使用固定 base，加 explicitness、quantity、temporal span、跨会话分布、quality、recency 六个正向因子，再减类型 depth penalty 和相反证据惩罚；contradiction 用 bilateral balance 代替 explicitness 且不应用相反证据惩罚。七类 cap 固定为 fact 0.95、preference 0.90、pattern 0.85、inference 0.80、hypothesis 0.60、contradiction 0.90、change 0.85。
+- 决策：中间标准化因子先按 Decimal `ROUND_HALF_UP` 固定到四位，再进入公式；最终值同样固定四位。该策略使持久化因子可以直接复算最终值，避免平台浮点显示差异。原 `PRODUCT_SPEC.md` 的“初始公式建议”由本 ADR 的精确 `confidence-1.0` 取代。
+- 决策：`model_confidence` 权重为 0，不进入输入指纹。评分层不读取正文、excerpt、title、statement 或姓名；输入指纹只覆盖版本、`as_of`、Insight 的结构字段和 Evidence/Message/Owner 特征。reasoning/alternative 文本不进入指纹，仅用“是否存在”布尔值复核旧 inference/hypothesis 数据。
+- 决策：评分前重算 evidence_state；invalid 或类型最低规则失败时 confidence=0，保留 Insight 且不修改 status。contradiction 单侧 Evidence 使用 `contradiction_roles_incomplete`，仍持久化 0 分和解释，不自动改类型。
+- 决策：每个 Insight 单独短事务；相同 fingerprint、版本、`as_of` 和 evidence_state 默认不 UPDATE。`force_recalculate` 只覆盖同一行，不创建 ConfidenceRun/History。阶段 8 不提供 HTTP API、审核 UI、Profile 或用户 override。
+- 原因：Evidence 驱动的机械分数比模型自评更可追溯、可测试、可版本化；content-free 数学层减少正文泄露面，也使 title/statement 的用户编辑不会意外改变分数。
+- 后果：权重是第一版产品规则，不是经过统计校准的科学概率；跨会话数量只是证据分布，不代表真实社会关系多样性。未来若调整权重必须新增 confidence 版本，不能无痕改写 1.0。
+
 ## 尚未决策
 
-1. hypothesis 的初始置信度上限及各类型阈值，需要阶段 8 用性质测试确定。
-2. 获得授权脱敏 WeFlow 样本后的真实字段映射。
-3. 项目开源许可证。
+1. 获得授权脱敏 WeFlow 样本后的真实字段映射。
+2. 项目开源许可证。

@@ -25,7 +25,13 @@ class InsightCreate(StrictSchema):
     extraction_version: NonEmptyString = Field(max_length=100)
     insight_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     model_confidence: Confidence | None = None
+    explicit_self_report: bool = False
     confidence_version: NonEmptyString = Field(default="unscored", max_length=100)
+    confidence_input_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    confidence_factors_json: dict[str, Any] | None = None
+    confidence_explanation: str | None = Field(default=None, max_length=4_000)
+    confidence_as_of: AwareDatetime | None = None
+    confidence_calculated_at: AwareDatetime | None = None
     reasoning_basis: str | None = None
     alternative_explanations: list[str] = Field(default_factory=list)
     metadata_json: dict[str, Any] = Field(default_factory=dict)
@@ -56,7 +62,13 @@ class InsightRead(ReadSchema):
     extraction_version: str
     insight_fingerprint: str | None
     model_confidence: float | None
+    explicit_self_report: bool
     confidence_version: str
+    confidence_input_fingerprint: str | None
+    confidence_factors_json: dict[str, Any] | None
+    confidence_explanation: str | None
+    confidence_as_of: AwareDatetime | None
+    confidence_calculated_at: AwareDatetime | None
     reasoning_basis: str | None
     alternative_explanations: list[str]
     metadata_json: dict[str, Any]

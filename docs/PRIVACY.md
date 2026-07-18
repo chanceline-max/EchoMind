@@ -84,6 +84,16 @@ data/
 - Insight/Evidence 指纹在数据库只保存 SHA-256，不把正文作为唯一键。ExtractionReport、WindowResult 和 ExtractionError 仅含受控 ID、计数、规则和状态，不含正文、excerpt、Prompt、响应、参与者姓名或路径。
 - 自动测试使用完全合成内容、离线 Mock 或 MockTransport；没有真实网络。当前没有分析 HTTP API、浏览器 Insight 缓存或前端 Insight 页面。
 
+### 阶段 8 Confidence 隐私边界
+
+- Confidence 请求只能列出明确 Insight ID 和 aware `as_of`，不能用空列表选择全库。模块不导入 Provider Factory、HTTP Client、FastAPI Request、Parser、Cleaner 或上传服务，也不访问网络。
+- 数学输入只含 Insight 类型/状态/自述标记/有效期/版本，Evidence 的 ID/fingerprint/role/相关度/有效性，以及 Message 的 ID/sender/conversation/timestamp 和 Owner 布尔值。加载和公式均不读取 raw/normalized content、excerpt、title、statement、参与者姓名、文件名、路径、Prompt 或模型响应。
+- `model_confidence` 仍保留用于审计，但不进入公式和输入指纹。修改模型自评不会触发重算，也不会改变最终支撑强度。
+- `confidence_factors_json` 只保存数值、计数、UTC 时间、版本和安全规则码；`confidence_explanation` 由固定模板生成，不包含 Message/Evidence ID 或正文。Report/Error 只返回 ID、状态、计数和白名单 details，不返回 SQL、traceback 或路径。
+- 输入指纹是结构化字段的 SHA-256。Evidence fingerprint 的变化会间接触发重算，但正文或 excerpt 不被直接复制到评分指纹、报告、解释或日志。
+- Confidence 没有 HTTP API、浏览器缓存、前端页面、模型请求缓存、遥测或 ConfidenceHistory。每个 Insight 的短事务只更新评分字段和 evidence_state，不修改 Evidence、聊天正文或用户编辑内容。
+- 文档和解释统一称“当前证据在机械规则下的支撑强度”，明确不是科学概率、诊断可信度或用户可信程度；低分不构成对用户的价值评价。
+
 ### 阶段 4 清洗边界
 
 - Cleaning 只处理调用方已传入的 `ParsedChatFile` 内存对象；不扫描目录、不读取附件、不访问 URL、不调用网络、不创建缓存数据库。

@@ -21,7 +21,8 @@ EchoMind/
 │   │   ├── schemas/             # Pydantic 请求、响应和领域传输对象
 │   │   ├── parsers/             # Parser 协议及 JSON/CSV/Text/WeFlow
 │   │   ├── cleaning/            # 可组合、可统计、可配置的清洗步骤
-│   │   ├── extraction/          # 分段、窗口、候选、合并、冲突、置信度
+│   │   ├── extraction/          # 分段、窗口、候选、Evidence 与精确幂等
+│   │   ├── confidence/          # 确定性因子、公式、解释和幂等重算
 │   │   ├── providers/           # LLMProvider 及 Mock/兼容/本地骨架
 │   │   ├── profiling/           # Markdown/JSON 档案生成与校验
 │   │   └── services/            # 导入、抽取、审阅和档案用例
@@ -127,7 +128,24 @@ eligible messages → deterministic chunks → overlapping context windows
 - 新候选固定 `proposed/valid`，`confidence=0.0`、`confidence_version=unscored` 表示阶段 8 尚未评分；`model_confidence` 单独保存。复用既有 Insight 时不覆盖 title/statement/status，可补充未关联 Evidence。
 - `ExtractionReport` 仅含 ID、计数、状态和受控错误，不含正文、excerpt、Prompt、Provider 响应或路径。阶段 7 没有 ExtractionRun、分析 HTTP API、前端页面、最终置信度或 Profile。
 
-### 4.3 Profile 生成
+### 4.3 置信度重算
+
+```text
+explicit Insight IDs + as_of → content-free database snapshot
+→ evidence_state → six evidence factors + contradiction factors
+→ type minimum rule → confidence-1.0 formula/cap
+→ fixed explanation → one-Insight short transaction
+```
+
+- `ConfidenceCalculationRequest` 必须明确给出 1–1000 个 Insight UUID 和 aware `as_of`，去重后保持顺序；不支持空列表代表全库。默认只处理 proposed/confirmed，rejected/superseded 只有显式 include 才评分。
+- 读取层只把 Insight 类型、自述标记、有效期、抽取版本和评分字段，以及 Evidence 有效性/role/相关度、Message 时间/会话/sender、Participant Owner 标记转换为不可变特征。数学层不读取 raw/normalized content、excerpt、title、statement、姓名、文件名或路径。
+- `evidence_state` 在每次计算前由关联 Evidence 重算。invalid 固定 0；partial 只用有效 Evidence 计算主要因子并通过 `valid_ratio` 降低 quality。最低规则失败同样固定 0，但不改变类型或 status。
+- 普通类型使用 explicitness、quantity、temporal span、跨会话分布、quality、recency 六个正向因子和 contradiction penalty；contradiction 使用 bilateral balance 代替 explicitness 且不应用该惩罚。七类 base、depth penalty 和 cap 固定在 `confidence-1.0`，Decimal 中间值按 ROUND_HALF_UP 四位小数持久化。
+- `model_confidence` 只作来源审计，公式权重为 0 且不进入输入指纹。指纹包含版本、`as_of` 和全部结构化评分输入；相同指纹、版本、`as_of` 且 evidence_state 一致时不执行 UPDATE。
+- 每个 Insight 单独读取、纯计算并在短写事务内只更新评分字段与 evidence_state；不修改 title、statement、status、model_confidence、Evidence 或关联。`force_recalculate` 可以刷新计算时间但不创建 History/Run 记录。
+- `ConfidenceReport/Error` 只含 ID、状态、计数、规则码和安全值；解释由固定本地模板生成，明确它是机械支撑强度而非科学概率。阶段 8 没有评分 API、审核 UI、用户 override、ConfidenceHistory 或 Profile。
+
+### 4.4 Profile 生成
 
 只读取允许进入档案的 Insight。正式导出默认仅包含 confirmed；用户显式启用后可纳入达到阈值的 proposed，但必须逐条标记为未确认。系统按 schema 生成中间结构，再由两个 renderer 分别输出 Markdown 和 JSON，避免语义漂移。
 

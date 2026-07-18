@@ -91,6 +91,7 @@ def test_repeat_run_is_idempotent_and_preserves_user_state(db_session: Session) 
     assert insight.confidence == 0.0
     assert insight.confidence_version == "unscored"
     assert insight.model_confidence == 0.8
+    assert insight.explicit_self_report is True
     assert insight.provider_name == "mock"
 
 

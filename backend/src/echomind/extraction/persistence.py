@@ -62,6 +62,7 @@ def _persist(
                 confidence=0.0,
                 confidence_version="unscored",
                 model_confidence=candidate.model_confidence,
+                explicit_self_report=candidate.explicit_self_report,
                 status=InsightStatus.PROPOSED,
                 evidence_state=EvidenceState.VALID,
                 valid_from=candidate.valid_from,

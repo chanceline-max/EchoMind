@@ -52,11 +52,11 @@
 
 验收：AI 候选只能 proposed；无 Evidence、窗口外 message ID 或无效输出不能进入正式 Insight；Mock 重跑幂等。
 
-## 阶段 8：实现可解释置信度算法
+## 阶段 8：实现可解释置信度算法（已完成）
 
-范围：版本化参数、系统分数、因子和解释；对 hypothesis、contradiction 和弱证据设置独立规则。
+已实现：`confidence-1.0` 精确公式、六个正向 Evidence 因子、普通类型相反证据惩罚、contradiction bilateral balance、七类 base/depth/cap、最低规则、evidence_state 重算、content-free 输入指纹、固定解释、逐 Insight 短事务和幂等重算。阶段 7 同步持久化 `explicit_self_report`；旧数据安全默认 false。
 
-验收：边界与性质测试通过；单条弱证据不能高分；分数明确不是心理学概率。
+验收：因子边界、公式、类型 cap、最低规则、Evidence 状态、指纹、隐私、持久化和重算测试通过；model_confidence 不参与；单条弱证据不能越过最低规则；分数明确是机械支撑强度而非心理学概率。
 
 ## 阶段 9：实现 Insight 审核界面
 
@@ -92,4 +92,4 @@
 
 ## 当前下一单一任务
 
-执行 **阶段 8：实现可解释的最终置信度计算与版本化重算**。基于阶段 7 已持久化的 proposed Insight、`model_confidence` 和有效 Evidence，先定义可测试因子、反证/时效处理、hypothesis 上限、`confidence_version` 与重算幂等；不得提前实现阶段 9 审核 UI 或阶段 10 Profile。
+执行 **阶段 9：实现 Insight 审核界面与审核 API**。基于阶段 8 已持久化的系统分数、因子、解释和 Evidence 状态，实现列表/详情、证据跳转、确认/编辑/驳回/supersede、乐观并发和修订历史；不得提前实现阶段 10 Profile。

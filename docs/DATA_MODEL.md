@@ -121,7 +121,7 @@ id、message_id、excerpt、excerpt_start、excerpt_end、excerpt_hash、evidenc
 
 ### Insight
 
-当前字段为：id、category、insight_type、title、statement、confidence、status、evidence_state、valid_from、valid_to、created_at、updated_at、model_name、provider_name、provider_request_id、extraction_version、insight_fingerprint、model_confidence、confidence_version、reasoning_basis、alternative_explanations(JSON)、metadata_json。
+当前字段为：id、category、insight_type、title、statement、confidence、status、evidence_state、valid_from、valid_to、created_at、updated_at、model_name、provider_name、provider_request_id、extraction_version、insight_fingerprint、model_confidence、explicit_self_report、confidence_version、confidence_input_fingerprint、confidence_factors_json、confidence_explanation、confidence_as_of、confidence_calculated_at、reasoning_basis、alternative_explanations(JSON)、metadata_json。
 
 `insight_type`: fact/preference/pattern/inference/hypothesis/contradiction/change。
 
@@ -131,7 +131,16 @@ id、message_id、excerpt、excerpt_start、excerpt_end、excerpt_hash、evidenc
 
 阶段 7 对新候选强制 64 位唯一 `insight_fingerprint`，由抽取版本、类型、受控类别、仅裁边/折叠空白后的 statement 和 UTC 有效期生成；旧数据允许 NULL，多个 NULL 不冲突。它只做精确幂等，不做大小写折叠、语义相似度、embedding 或用户内容覆盖。
 
-`model_confidence` 是 Provider 的 0–1 自评，与最终 `confidence` 分离。阶段 7 新候选固定 `confidence=0.0` 和 `confidence_version=unscored`；该组合表示阶段 8 尚未评分，不表示科学计算结果为零。`provider_name` 和 `provider_request_id` 保存安全来源标识，不保存 Prompt、模型响应、Key 或聊天全文。
+`model_confidence` 是 Provider 的 0–1 自评，与最终 `confidence` 分离；`confidence-1.0` 中其权重为 0，也不进入评分输入指纹。阶段 7 新候选固定 `confidence=0.0` 和 `confidence_version=unscored`；该组合表示尚未评分，不表示科学计算结果为零。`explicit_self_report` 保存阶段 7 已验证的 Candidate 布尔值，旧记录经第四条迁移安全默认 false，不根据正文反推。
+
+阶段 8 新增评分持久化字段：
+
+- `confidence_input_fingerprint`：可空 64 位 SHA-256，普通索引；相同结构化输入、版本和 `as_of` 的幂等键，不全局唯一。
+- `confidence_factors_json`：数值因子、Evidence/时间点/会话计数、类型 cap、版本、`as_of` 和安全规则码；禁止正文、excerpt、姓名、文件名、路径、Prompt 或响应。
+- `confidence_explanation`：最长 4000 字符的本地固定模板解释，不调用模型。
+- `confidence_as_of`：recency 的 aware UTC 基准；`confidence_calculated_at`：实际写入的 aware UTC 时间，不参与指纹。
+
+每次评分会重算 evidence_state：有关联且全部有效为 valid，有效/无效混合为 partial，无关联或全部无效为 invalid。invalid 的 confidence 固定 0。评分只更新上述评分字段和 evidence_state，不修改 title、statement、status、model_confidence、Evidence 或 InsightEvidence。
 
 ### InsightEvidence
 
@@ -163,11 +172,11 @@ id、generated_at、profile_version、schema_version、markdown_content、json_c
 - preference：用户明确表达，或在多个独立选择场景中稳定表现。
 - pattern：至少两个独立事件或时间点；单条消息不能直接生成。
 - inference：记录 reasoning_basis 和其他可能解释，原文没有直接表述该结论。
-- hypothesis：证据不足的暂定解释；阶段 8 决定可测试、版本化的置信度上限。
+- hypothesis：证据不足的暂定解释；`confidence-1.0` 上限为 0.60。
 - change：同一主题至少覆盖两个不同时间点。
 - contradiction：双方 Evidence 必须同时保留。
 
-阶段 7 的候选 Service 已执行上述最低机械约束，并始终创建 `proposed`；这些规则不能证明心理学真实性或完整独立事件语义。阶段 8 仍需计算可解释最终置信度，后续编辑、确认和 Profile 入口也必须重复验证，不能只依赖前端。
+阶段 7 的候选 Service 已执行上述最低机械约束，并始终创建 `proposed`；阶段 8 在重算时再次检查数据库当前最低条件，失败则 confidence=0 且保存安全规则码，不自动改类型、确认或驳回。这些规则不能证明心理学真实性或完整独立事件语义，后续编辑、确认和 Profile 入口也必须重复验证，不能只依赖前端。
 
 ## 7. 待确认问题
 

@@ -69,6 +69,7 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
         insight_indexes = {item["name"] for item in database_inspector.get_indexes("insights")}
         assert {
             "ix_insights_confidence",
+            "ix_insights_confidence_input_fingerprint",
             "ix_insights_insight_type",
             "ix_insights_status",
             "ux_insights_insight_fingerprint",
@@ -84,6 +85,12 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
             "provider_name",
             "provider_request_id",
             "confidence_version",
+            "explicit_self_report",
+            "confidence_input_fingerprint",
+            "confidence_factors_json",
+            "confidence_explanation",
+            "confidence_as_of",
+            "confidence_calculated_at",
         } <= insight_columns.keys()
         assert insight_columns["confidence_version"]["nullable"] is False
         evidence_columns = {item["name"] for item in database_inspector.get_columns("evidence")}
@@ -111,7 +118,7 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-        assert revision == "20260718_0003"
+        assert revision == "20260719_0004"
         assert CORE_TABLES <= set(inspect(engine).get_table_names())
     finally:
         engine.dispose()
@@ -392,3 +399,51 @@ def test_stage_seven_unique_null_and_confidence_constraints(
                 },
             )
     engine.dispose()
+
+
+def test_stage_eight_upgrade_preserves_unscored_insight_and_round_trips(
+    migration_database_path: Path,
+) -> None:
+    database_path = migration_database_path
+    config = alembic_config(database_path)
+    command.upgrade(config, "20260718_0003")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    insight_id = "00000000-0000-4000-8000-000000000081"
+    now = "2026-07-19 00:00:00"
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO insights "
+                "(id, category, insight_type, title, statement, confidence, status, "
+                "evidence_state, valid_from, valid_to, created_at, updated_at, model_name, "
+                "extraction_version, reasoning_basis, alternative_explanations, metadata, "
+                "provider_name, provider_request_id, insight_fingerprint, model_confidence, "
+                "confidence_version) VALUES "
+                "(:id, 'background', 'fact', 'Old title', 'Old statement', 0, 'proposed', "
+                "'invalid', NULL, NULL, :now, :now, NULL, 'old-v1', NULL, '[]', '{}', "
+                "NULL, NULL, NULL, NULL, 'unscored')"
+            ),
+            {"id": insight_id, "now": now},
+        )
+    engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    with engine.connect() as connection:
+        row = connection.execute(
+            text(
+                "SELECT statement, confidence, confidence_version, explicit_self_report, "
+                "confidence_input_fingerprint FROM insights WHERE id=:id"
+            ),
+            {"id": insight_id},
+        ).one()
+    engine.dispose()
+    assert tuple(row) == ("Old statement", 0.0, "unscored", 0, None)
+
+    command.downgrade(config, "20260718_0003")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    assert "explicit_self_report" not in {
+        item["name"] for item in inspect(engine).get_columns("insights")
+    }
+    engine.dispose()
+    command.upgrade(config, "head")

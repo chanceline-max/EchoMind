@@ -3,7 +3,17 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, CheckConstraint, Enum, Float, ForeignKey, Index, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from echomind.db.base import Base
@@ -69,11 +79,20 @@ class Insight(Base):
             "insight_fingerprint IS NULL OR length(insight_fingerprint) = 64",
             name="insight_fingerprint_sha256_length",
         ),
+        CheckConstraint(
+            "confidence_input_fingerprint IS NULL OR length(confidence_input_fingerprint) = 64",
+            name="confidence_input_fingerprint_sha256_length",
+        ),
+        CheckConstraint(
+            "confidence_explanation IS NULL OR length(confidence_explanation) <= 4000",
+            name="confidence_explanation_length",
+        ),
         Index(
             "ux_insights_insight_fingerprint",
             "insight_fingerprint",
             unique=True,
         ),
+        Index("ix_insights_confidence_input_fingerprint", "confidence_input_fingerprint"),
     )
 
     id: Mapped[str] = mapped_column(String(UUID_LENGTH), primary_key=True, default=new_uuid)
@@ -133,11 +152,17 @@ class Insight(Base):
     extraction_version: Mapped[str] = mapped_column(String(100), nullable=False)
     insight_fingerprint: Mapped[str | None] = mapped_column(String(64))
     model_confidence: Mapped[float | None] = mapped_column(Float)
+    explicit_self_report: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     confidence_version: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
         default="unscored",
     )
+    confidence_input_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    confidence_factors_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    confidence_explanation: Mapped[str | None] = mapped_column(Text)
+    confidence_as_of: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    confidence_calculated_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     reasoning_basis: Mapped[str | None] = mapped_column(Text)
     alternative_explanations: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(
