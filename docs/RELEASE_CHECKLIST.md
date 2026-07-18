@@ -1,15 +1,15 @@
 # EchoMind 0.1.0 发布清单
 
-未勾选项目不得被解释为已授权或已完成。Tag、Push、Release 和上传产物必须由项目所有者手动执行。
+未勾选项目不得被解释为已授权或已完成。Tag、Push、Release 和上传产物必须由项目所有者明确授权，并且只有在 GitHub 回读验证成功后才能勾选。
 
 ## 所有者决定
 
 - [x] 许可证选择：Apache-2.0
 - [x] 版权持有人：杨锦辰
-- [ ] 确认公开仓库地址
-- [ ] 确认是否启用 GitHub Private Vulnerability Reporting
-- [ ] 确认是否创建 `v0.1.0` tag
-- [ ] 确认是否发布 GitHub Release
+- [x] 公开仓库：[chanceline-max/EchoMind](https://github.com/chanceline-max/EchoMind)
+- [x] 已启用 GitHub Private Vulnerability Reporting
+- [x] 已创建并推送 `v0.1.0` annotated tag，目标提交为 `0eb7650332210928e03f404e3707b6c508b4cb5e`
+- [x] 已发布 [EchoMind v0.1.0](https://github.com/chanceline-max/EchoMind/releases/tag/v0.1.0)
 
 ## 代码验证
 
@@ -49,11 +49,12 @@
 - [x] 源码归档模拟包含许可与社区文件且不含本地产物
 - [x] 构建产物未上传到仓库、PyPI 或 npm
 
-## 项目所有者手动发布
+## 项目所有者授权的正式发布
 
-- [ ] 配置并复核远程仓库地址
-- [ ] 推送 `main`
-- [ ] 创建并推送 `v0.1.0` tag
-- [ ] 创建 GitHub Release 并粘贴已审阅的发布说明
-- [ ] 按需上传已复核产物
-- [ ] 发布后从公开源码执行一次冒烟安装和 Health 检查
+- [x] 配置并复核远程仓库地址 `https://github.com/chanceline-max/EchoMind.git`
+- [x] 推送 `main`，远程提交与本地发布提交一致
+- [x] 创建并推送 `v0.1.0` annotated tag
+- [x] 创建非草稿、非预发布的 GitHub Release，并使用已审阅的发布说明
+- [x] 确认本次 Release 不上传额外构建资产，仅保留 GitHub 自动生成的源码归档
+- [x] 下载公开 `v0.1.0` 源码归档，核对许可、社区、变更记录和发布说明文件，并清理临时目录
+- [x] 发布后从公开源码执行一次干净安装和 Health 冒烟检查
