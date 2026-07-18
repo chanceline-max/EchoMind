@@ -46,9 +46,9 @@
 
 验收：默认 Mock；远程双重授权、endpoint 基础安全、预算、响应大小、纯 JSON/Pydantic 验证、有限重试和安全错误均由断网测试覆盖；Key 仅从服务端环境读取；无 Key/prompt/响应泄露；SDK 类型不进入业务层。
 
-## 阶段 7：实现候选 Insight 抽取
+## 阶段 7：实现候选 Insight 抽取（已完成）
 
-范围：消息过滤、分析单元、上下文窗口、Provider 调用、输出校验、Evidence、去重、版本和重复运行。
+已实现：显式会话/时间选择、Profile Owner 约束、单会话有限窗口、匿名局部别名、固定 Prompt、严格 Candidate Schema、七类最低机械规则、本地 Evidence、Insight/Evidence 精确指纹、窗口级事务、安全报告和重复运行恢复。未引入 ExtractionRun、HTTP API、前端页面、最终置信度、语义合并或 Profile。
 
 验收：AI 候选只能 proposed；无 Evidence、窗口外 message ID 或无效输出不能进入正式 Insight；Mock 重跑幂等。
 
@@ -92,4 +92,4 @@
 
 ## 当前下一单一任务
 
-执行 **阶段 7：实现候选 Insight 抽取**。开始前应基于阶段 4 AnalysisUnit 与阶段 6 Provider 契约设计有限上下文、当前窗口 message ID 白名单、候选 Schema、Evidence 绑定、去重/幂等和失败恢复；AI 候选只能进入 proposed，不得提前实现置信度算法或 Profile。
+执行 **阶段 8：实现可解释的最终置信度计算与版本化重算**。基于阶段 7 已持久化的 proposed Insight、`model_confidence` 和有效 Evidence，先定义可测试因子、反证/时效处理、hypothesis 上限、`confidence_version` 与重算幂等；不得提前实现阶段 9 审核 UI 或阶段 10 Profile。

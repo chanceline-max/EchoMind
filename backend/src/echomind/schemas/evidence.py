@@ -51,3 +51,4 @@ class EvidenceRead(ReadSchema):
     invalidated_at: AwareDatetime | None
     invalidation_reason: str | None
     created_at: AwareDatetime
+    evidence_fingerprint: str | None

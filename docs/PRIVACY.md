@@ -11,7 +11,7 @@
 - 默认绑定 `127.0.0.1`，不开放公网或局域网。
 - 默认 SQLite 和本地文件目录；默认关闭遥测、崩溃上报和外部分析。
 - 默认不配置远程模型；Mock 和纯规则模式可完成测试。
-- 远程模型调用必须同时由服务端显式启用和当前请求显式 consent；阶段 7 在发送前说明 Provider、数据范围和脱敏设置。
+- 远程模型调用必须同时由服务端显式启用和当前请求显式 consent；阶段 7 的内部请求明确 Provider、会话/时间范围和窗口参数。当前尚无分析 UI，调用方必须在外层提供发送范围说明和用户确认。
 - 不加载远程字体、追踪像素或第三方前端资源。
 - 真实聊天、数据库、档案、密钥和 `.env` 不进入 Git。
 - MVP 不提供证据链数据的不可逆物理删除；归档和排除必须保留原始内容并传播 Evidence 失效状态。
@@ -67,13 +67,22 @@ data/
 
 - `mock` 是默认 Provider，不读环境 Key、不访问网络、不根据正文隐藏关键词改变行为。失败场景只能由测试/显式构造参数选择。
 - OpenAI-compatible 调用只有 `LLM_REMOTE_ENABLED=true` 和当前 `LLMRequest.remote_consent=true` 同时成立才进入 Transport；拒绝不会触发网络，且失败不会回退其他 Provider。
-- Provider 只发送当前 `LLMRequest` 的 system instruction、user messages、响应 Schema 和生成参数。Provider 包不导入 ORM/Repository，不自动读取数据库、上传原文件、排除消息或 `raw_content`；具体窗口和发送范围属于阶段 7，尚未实现。
+- Provider 只发送当前 `LLMRequest` 的 system instruction、user messages、响应 Schema 和生成参数。Provider 包不导入 ORM/Repository；阶段 7 Extraction Service 在 Provider 外选择明确会话并构造有限窗口，不读取上传原文件、排除消息或 `raw_content`。
 - Key 使用服务端 `SecretStr`，不进入浏览器、数据库、结果、错误或日志。Transport 只向目标请求加入 Bearer Authorization，返回时只保留受限 `x-request-id`、API 版本和 Content-Type，不保留完整 Header。
 - endpoint 只来自服务端 Settings；默认 HTTPS，禁止 URL 凭据、fragment、重定向和非 HTTP(S)。显式本地 HTTP 只允许 localhost/127.0.0.1/::1。基础校验不防御 HTTPS DNS 重绑定，不能替代网络出口控制。
 - prompt、响应正文和模型请求不缓存、不记录；安全错误不含被拒绝输入、完整路径、Key、Authorization、数据库 URL 或环境变量。最大响应字节、输入字符、单消息、消息数、Schema 和输出上限均在集中配置中限制。
 - 自动测试仅使用合成 marker 和 `httpx.MockTransport`。即使开发环境存在真实 Key，默认 Mock 与授权拒绝测试也不会访问网络。
 
 远程服务的数据保留和训练政策由用户选择的 Provider 决定，EchoMind 必须提示用户自行核对。
+
+### 阶段 7 Extraction 隐私边界
+
+- ExtractionRequest 不允许空会话集合或隐式全库选择；只读取明确会话、可选带时区时间范围和当前可分析消息。已排除、归档、删除或无有效时间消息不进入窗口。
+- Provider 上下文只包含当前窗口的 `normalized_content`、局部消息/回复别名、匿名角色、时间、类型和截断标记。它不含 `raw_content`、数据库/源消息 ID、参与者姓名、文件名、路径、metadata、cleaning operations、Key 或数据库 URL。
+- 单条 Provider 内容最多发送请求上限，默认 4000 字符，采用确定性前缀和 `[TRUNCATED]`；每窗默认最多 40 条/12000 字符且不跨会话。远程调用经双重授权后**会发送这些窗口内的 normalized_content**，不能声称完全不外发聊天内容。
+- 模型只返回候选字段与局部 Evidence 引用。Evidence excerpt 在本地从完整 `normalized_content` 生成，不接受模型 excerpt；Prompt 和完整 Provider 输出不写数据库、不缓存、不写日志。
+- Insight/Evidence 指纹在数据库只保存 SHA-256，不把正文作为唯一键。ExtractionReport、WindowResult 和 ExtractionError 仅含受控 ID、计数、规则和状态，不含正文、excerpt、Prompt、响应、参与者姓名或路径。
+- 自动测试使用完全合成内容、离线 Mock 或 MockTransport；没有真实网络。当前没有分析 HTTP API、浏览器 Insight 缓存或前端 Insight 页面。
 
 ### 阶段 4 清洗边界
 
@@ -116,7 +125,7 @@ data/
 | 临时/导出文件遗留 | 请求级临时目录作用域清理、用户显式导出和敏感提示 |
 | CSV 公式注入 | 导出 CSV 时转义危险前缀；MVP Profile 不默认导出 CSV |
 | 未授权局域网访问 | 默认只监听 localhost；开放网络必须显式配置 |
-| 远程模型过度外发 | 服务端开关 + 逐请求 consent；阶段 7 再实现窗口化、预览范围和脱敏选择 |
+| 远程模型过度外发 | 服务端开关 + 逐请求 consent；阶段 7 已实现明确范围、匿名角色、有限单会话窗口和排除过滤，发送前 UI 预览仍属后续任务 |
 | 错误人格推断造成伤害 | 非诊断声明、证据链、类型区分、用户确认和驳回 |
 | 派生档案比原文更敏感 | 与原文同级保护、可删除、无默认分享 |
 

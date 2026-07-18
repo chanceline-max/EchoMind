@@ -3,7 +3,17 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from echomind.db.base import Base
@@ -32,6 +42,15 @@ class Evidence(Base):
         CheckConstraint(
             "is_valid = 1 OR invalidated_at IS NOT NULL",
             name="invalid_evidence_has_timestamp",
+        ),
+        CheckConstraint(
+            "evidence_fingerprint IS NULL OR length(evidence_fingerprint) = 64",
+            name="evidence_fingerprint_sha256_length",
+        ),
+        Index(
+            "ux_evidence_evidence_fingerprint",
+            "evidence_fingerprint",
+            unique=True,
         ),
     )
 
@@ -64,6 +83,7 @@ class Evidence(Base):
     invalidated_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     invalidation_reason: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
+    evidence_fingerprint: Mapped[str | None] = mapped_column(String(64))
 
     message: Mapped["Message"] = relationship(back_populates="evidences")
     insight_links: Mapped[list["InsightEvidence"]] = relationship(

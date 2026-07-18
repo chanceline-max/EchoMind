@@ -7,6 +7,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 
 CORE_TABLES = {
     "source_files",
@@ -70,7 +71,23 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
             "ix_insights_confidence",
             "ix_insights_insight_type",
             "ix_insights_status",
+            "ux_insights_insight_fingerprint",
         } <= insight_indexes
+        evidence_indexes = {item["name"] for item in database_inspector.get_indexes("evidence")}
+        assert "ux_evidence_evidence_fingerprint" in evidence_indexes
+        insight_columns = {
+            item["name"]: item for item in database_inspector.get_columns("insights")
+        }
+        assert {
+            "insight_fingerprint",
+            "model_confidence",
+            "provider_name",
+            "provider_request_id",
+            "confidence_version",
+        } <= insight_columns.keys()
+        assert insight_columns["confidence_version"]["nullable"] is False
+        evidence_columns = {item["name"] for item in database_inspector.get_columns("evidence")}
+        assert "evidence_fingerprint" in evidence_columns
         snapshot_indexes = database_inspector.get_indexes("profile_snapshots")
         assert any(item["name"] == "ix_profile_snapshots_generated_at" for item in snapshot_indexes)
 
@@ -94,7 +111,7 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-        assert revision == "20260717_0002"
+        assert revision == "20260718_0003"
         assert CORE_TABLES <= set(inspect(engine).get_table_names())
     finally:
         engine.dispose()
@@ -179,3 +196,199 @@ def test_stage_five_upgrade_preserves_existing_stage_two_message(
         )
     engine.dispose()
     command.upgrade(config, "head")
+
+
+def test_stage_seven_upgrade_preserves_existing_insight_and_evidence(
+    migration_database_path: Path,
+) -> None:
+    database_path = migration_database_path
+    config = alembic_config(database_path)
+    command.upgrade(config, "20260717_0002")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    ids = {
+        "source": "00000000-0000-4000-8000-000000000011",
+        "participant": "00000000-0000-4000-8000-000000000012",
+        "conversation": "00000000-0000-4000-8000-000000000013",
+        "message": "00000000-0000-4000-8000-000000000014",
+        "evidence": "00000000-0000-4000-8000-000000000015",
+        "insight": "00000000-0000-4000-8000-000000000016",
+        "now": "2026-07-18 00:00:00",
+        "hash": "b" * 64,
+    }
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO source_files "
+                "(id, filename, file_type, file_hash, storage_path, byte_size, imported_at, "
+                "parser_name, parser_version, status, archived_at, metadata) VALUES "
+                "(:source, 'synthetic.json', 'json', :hash, NULL, 1, :now, "
+                "'synthetic', '1.0', 'ready', NULL, '{}')"
+            ),
+            ids,
+        )
+        connection.execute(
+            text(
+                "INSERT INTO participants "
+                "(id, canonical_name, aliases, is_profile_owner, created_at, metadata) "
+                "VALUES (:participant, 'Synthetic Owner', '[]', 1, :now, '{}')"
+            ),
+            ids,
+        )
+        connection.execute(
+            text(
+                "INSERT INTO conversations "
+                "(id, source_file_id, platform, source_conversation_id, title, started_at, "
+                "ended_at, archived_at, metadata) VALUES "
+                "(:conversation, :source, 'synthetic', 'c1', NULL, NULL, NULL, NULL, '{}')"
+            ),
+            ids,
+        )
+        connection.execute(
+            text(
+                "INSERT INTO conversation_participants (conversation_id, participant_id) "
+                "VALUES (:conversation, :participant)"
+            ),
+            ids,
+        )
+        connection.execute(
+            text(
+                "INSERT INTO messages "
+                "(id, conversation_id, source_message_id, sender_id, timestamp, sequence_index, "
+                "message_type, raw_content, normalized_content, reply_to_message_id, is_deleted, "
+                "archived_at, excluded_from_analysis, exclusion_reason, normalization_version, "
+                "metadata, created_at, source_order, source_location, duplicate_of_message_id, "
+                "is_system_message, is_recalled_message, exclusion_reasons_json, "
+                "cleaning_operations_json) VALUES "
+                "(:message, :conversation, 'm1', :participant, :now, 0, 'text', "
+                "'old raw', 'old normalized', NULL, 0, NULL, 0, NULL, '1.0', '{}', :now, "
+                "0, NULL, NULL, 0, 0, '[]', '[]')"
+            ),
+            ids,
+        )
+        connection.execute(
+            text(
+                "INSERT INTO evidence "
+                "(id, message_id, excerpt, excerpt_start, excerpt_end, excerpt_hash, "
+                "evidence_type, stance, relevance_score, is_valid, invalidated_at, "
+                "invalidation_reason, created_at) VALUES "
+                "(:evidence, :message, 'old normalized', 0, 14, :hash, 'supporting', "
+                "'supports', 0.8, 1, NULL, NULL, :now)"
+            ),
+            ids,
+        )
+        connection.execute(
+            text(
+                "INSERT INTO insights "
+                "(id, category, insight_type, title, statement, confidence, status, "
+                "evidence_state, valid_from, valid_to, created_at, updated_at, model_name, "
+                "extraction_version, reasoning_basis, alternative_explanations, metadata) "
+                "VALUES (:insight, 'background', 'fact', 'Old title', 'Old statement', 0.5, "
+                "'proposed', 'valid', NULL, NULL, :now, :now, NULL, 'old-v1', NULL, '[]', '{}')"
+            ),
+            ids,
+        )
+    engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    with engine.connect() as connection:
+        insight = connection.execute(
+            text(
+                "SELECT statement, insight_fingerprint, model_confidence, confidence_version "
+                "FROM insights WHERE id = :insight"
+            ),
+            ids,
+        ).one()
+        evidence = connection.execute(
+            text("SELECT excerpt, evidence_fingerprint FROM evidence WHERE id = :evidence"),
+            ids,
+        ).one()
+    engine.dispose()
+    assert tuple(insight) == ("Old statement", None, None, "unscored")
+    assert tuple(evidence) == ("old normalized", None)
+
+    command.downgrade(config, "20260717_0002")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    with engine.connect() as connection:
+        assert (
+            connection.execute(
+                text("SELECT statement FROM insights WHERE id = :insight"), ids
+            ).scalar_one()
+            == "Old statement"
+        )
+        assert (
+            connection.execute(
+                text("SELECT excerpt FROM evidence WHERE id = :evidence"), ids
+            ).scalar_one()
+            == "old normalized"
+        )
+    engine.dispose()
+    command.upgrade(config, "head")
+
+
+def test_stage_seven_unique_null_and_confidence_constraints(
+    migration_database_path: Path,
+) -> None:
+    database_path = migration_database_path
+    config = alembic_config(database_path)
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    base = {
+        "now": "2026-07-18 00:00:00",
+        "fingerprint": "f" * 64,
+    }
+    statement = text(
+        "INSERT INTO insights "
+        "(id, category, insight_type, title, statement, confidence, status, evidence_state, "
+        "valid_from, valid_to, created_at, updated_at, model_name, extraction_version, "
+        "reasoning_basis, alternative_explanations, metadata, provider_name, "
+        "provider_request_id, insight_fingerprint, model_confidence, confidence_version) "
+        "VALUES (:id, 'other', 'fact', 'Title', :statement, 0, 'proposed', 'valid', NULL, "
+        "NULL, :now, :now, NULL, 'candidate-extraction-1.0', NULL, '[]', '{}', NULL, "
+        "NULL, :fingerprint, :model_confidence, 'unscored')"
+    )
+    with engine.begin() as connection:
+        for index in range(2):
+            connection.execute(
+                statement,
+                {
+                    **base,
+                    "id": f"00000000-0000-4000-8000-00000000002{index}",
+                    "statement": f"Null fingerprint {index}",
+                    "fingerprint": None,
+                    "model_confidence": None,
+                },
+            )
+        connection.execute(
+            statement,
+            {
+                **base,
+                "id": "00000000-0000-4000-8000-000000000030",
+                "statement": "Unique fingerprint",
+                "model_confidence": 0.5,
+            },
+        )
+    with pytest.raises(IntegrityError):
+        with engine.begin() as connection:
+            connection.execute(
+                statement,
+                {
+                    **base,
+                    "id": "00000000-0000-4000-8000-000000000031",
+                    "statement": "Duplicate fingerprint",
+                    "model_confidence": 0.4,
+                },
+            )
+    with pytest.raises(IntegrityError):
+        with engine.begin() as connection:
+            connection.execute(
+                statement,
+                {
+                    **base,
+                    "id": "00000000-0000-4000-8000-000000000032",
+                    "statement": "Invalid model confidence",
+                    "fingerprint": "e" * 64,
+                    "model_confidence": 1.1,
+                },
+            )
+    engine.dispose()

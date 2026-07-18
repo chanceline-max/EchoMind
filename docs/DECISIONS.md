@@ -149,6 +149,16 @@
 - 原因：在阶段 7 构造真实分析窗口前，先把供应商耦合、默认离线、授权、SSRF 基础边界、资源上限和不可信输出验证做成独立、可测试的基础设施。
 - 后果：字符预算不是 tokenizer；OpenAI-compatible 服务的 JSON Schema 能力仍可能不同；HTTPS DNS 重绑定未由应用层完全防御；阶段 6 没有模型调用 API、前端配置、Insight 或 Evidence。
 
+## ADR-021：阶段 7 使用单会话窗口、本地 Evidence 与精确指纹
+
+- 状态：已接受。
+- 决策：抽取只接受显式会话列表和可选 aware 时间范围；每个会话必须恰好一个 Profile Owner。只选未排除、未归档、未删除且时间有效消息，按请求会话顺序及 `source_order, id` 构造单会话窗口。默认窗口 40 条/12000 字符，单条 4000 字符、重叠最多 4 条，确定性前缀截断使用 `[TRUNCATED]`。
+- 决策：Provider 仅看到 `mNNN`/`c001` 局部别名、`PROFILE_OWNER/OTHER_n` 匿名角色及受限 `normalized_content`。Prompt 与抽取版本固定为 `candidate-extraction-1.0`；Candidate Schema 与 ORM 分离，并执行七类最低机械证据约束。模型不能提供 Evidence excerpt，本地 excerpt 上限为 500 字符。
+- 决策：Insight 指纹按版本、类型、类别、仅折叠空白的 statement 和有效期计算；Evidence 指纹按消息 ID、Evidence 类型、excerpt SHA-256 和版本计算。第一版不做大小写折叠、embedding 或语义合并。旧记录 fingerprint 可为 NULL；新对象由 Service 强制提供，唯一索引允许 SQLite 多个 NULL。
+- 决策：新候选固定 `proposed/valid`、`confidence=0.0`、`confidence_version=unscored`，模型自评分离保存。Provider 调用期间不持有数据库事务；每个窗口最多一次成功提交，失败整窗回滚，前序窗口保留。同步恢复依靠指纹，不创建 ExtractionRun。
+- 原因：单会话窗口降低误归因并简化局部 Evidence 白名单；本地 excerpt 防止模型伪造证据；精确指纹可解释、可测试且不会覆盖用户编辑；窗口短事务适配 SQLite，并保持阶段 7 无队列、无长期运行模型。
+- 后果：当前不能跨窗口/跨会话做语义聚合，机械规则不能证明独立事件或心理学真实性；远程 Provider 经授权后仍会收到当前窗口 `normalized_content`；没有分析 API、UI、最终置信度或 Profile。
+
 ## 尚未决策
 
 1. hypothesis 的初始置信度上限及各类型阈值，需要阶段 8 用性质测试确定。

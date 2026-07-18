@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, CheckConstraint, Enum, Float, ForeignKey, String, Text
+from sqlalchemy import JSON, CheckConstraint, Enum, Float, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from echomind.db.base import Base
@@ -56,6 +56,23 @@ class Insight(Base):
         CheckConstraint(
             "length(trim(extraction_version)) > 0",
             name="extraction_version_not_empty",
+        ),
+        CheckConstraint(
+            "model_confidence IS NULL OR (model_confidence >= 0 AND model_confidence <= 1)",
+            name="model_confidence_range",
+        ),
+        CheckConstraint(
+            "length(trim(confidence_version)) > 0",
+            name="confidence_version_not_empty",
+        ),
+        CheckConstraint(
+            "insight_fingerprint IS NULL OR length(insight_fingerprint) = 64",
+            name="insight_fingerprint_sha256_length",
+        ),
+        Index(
+            "ux_insights_insight_fingerprint",
+            "insight_fingerprint",
+            unique=True,
         ),
     )
 
@@ -111,7 +128,16 @@ class Insight(Base):
         onupdate=utc_now,
     )
     model_name: Mapped[str | None] = mapped_column(String(255))
+    provider_name: Mapped[str | None] = mapped_column(String(128))
+    provider_request_id: Mapped[str | None] = mapped_column(String(UUID_LENGTH))
     extraction_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    insight_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    model_confidence: Mapped[float | None] = mapped_column(Float)
+    confidence_version: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="unscored",
+    )
     reasoning_basis: Mapped[str | None] = mapped_column(Text)
     alternative_explanations: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(

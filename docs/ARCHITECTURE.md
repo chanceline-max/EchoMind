@@ -112,14 +112,20 @@ explicit local Path → extension/signature selection → raw-byte SHA-256
 
 ```text
 eligible messages → deterministic chunks → overlapping context windows
-→ provider candidate schema → evidence validation → merge/deduplicate
-→ contradiction links → confidence factors → proposed insights
+→ provider candidate schema → minimum evidence validation
+→ local Evidence binding → exact fingerprint reuse → proposed insights
 ```
 
-- 不将完整聊天记录一次性交给模型。
-- Provider 只接收显式构造的窗口和结构化输出 schema。
-- 模型返回的 message ID 必须在当前窗口内，否则候选无效。
-- `extraction_version + provider + prompt_version + input_hash` 构成幂等键。
+- 阶段 7 的内部 `ExtractionRequest` 必须显式给出 1–100 个会话，空集合不代表全库；时间范围必须带时区。会话按去重后的请求顺序处理，消息按 `source_order, id` 排序。
+- 每个会话必须未归档且恰好有一个 Profile Owner。只选择时间范围内 `excluded_from_analysis=false`、未归档、未删除且时间有效的 Message；不会读取 SourceFile 原文、`raw_content`、路径、metadata 或 cleaning operations。
+- 每窗只含一个会话，默认 40 条/12000 字符，单条上下文最多 4000 字符并在限额内追加 `[TRUNCATED]`，相邻窗口最多重叠 4 条。窗口 ID 是抽取版本、会话数据库 ID、有序消息数据库 ID 和窗口参数版本的 SHA-256，不含正文。
+- Provider 只接收 `m001...` 消息别名、`c001` 会话别名、`PROFILE_OWNER/OTHER_n` 匿名角色、时间、类型、截断后的 `normalized_content` 和同窗回复别名。数据库/源 ID、参与者姓名、文件名和路径不进入 payload。
+- Prompt 固定为 `candidate-extraction-1.0`；禁止诊断、MBTI、单消息 pattern、窗外引用和 confirmed 输出。Provider 使用独立 Candidate Schema，最多返回请求允许的候选数。
+- 候选先执行七类最低机械规则；无效候选单独拒绝，合法候选继续。模型只提供局部 Evidence 引用；本地从完整 `normalized_content` 生成最多 500 字符 excerpt，不使用模型 excerpt。
+- Insight 指纹由抽取版本、类型、受控类别、保守空白规范化 statement 和有效期生成；Evidence 指纹由消息 ID、Evidence 类型、excerpt SHA-256 和指纹版本生成。第一版不做 embedding、语义相似度或跨窗口自动合并。
+- Provider 调用前关闭读取 Session，不在网络期间持有数据库事务。每窗合法候选在一个短事务内整体提交或回滚；前序成功窗口保留。`stop_on_window_error` 决定失败后停止或继续，重复运行通过唯一指纹恢复。
+- 新候选固定 `proposed/valid`，`confidence=0.0`、`confidence_version=unscored` 表示阶段 8 尚未评分；`model_confidence` 单独保存。复用既有 Insight 时不覆盖 title/statement/status，可补充未关联 Evidence。
+- `ExtractionReport` 仅含 ID、计数、状态和受控错误，不含正文、excerpt、Prompt、Provider 响应或路径。阶段 7 没有 ExtractionRun、分析 HTTP API、前端页面、最终置信度或 Profile。
 
 ### 4.3 Profile 生成
 

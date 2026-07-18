@@ -26,7 +26,7 @@
 ImportJob、ExtractionRun、InsightRevision、InsightRelation 和 ProfileSnapshotInsight 不在阶段 2 创建：
 
 - ImportJob：阶段 5 采用同步请求且没有恢复需求；仅在后续出现真实异步/恢复用例时再评估。
-- ExtractionRun：阶段 7 抽取恢复与幂等需要时加入。
+- ExtractionRun：阶段 7 通过确定性窗口、精确指纹和窗口级事务满足同步恢复，不创建运行表；仅在后续出现持久任务状态需求时再评估。
 - InsightRevision、InsightRelation：阶段 9 审核和 supersede 需要时加入。
 - ProfileSnapshotInsight：阶段 10 生成快照并验证追溯时加入。
 
@@ -109,17 +109,19 @@ id、canonical_name、aliases(JSON array)、is_profile_owner、created_at、meta
 
 ### Evidence
 
-id、message_id、excerpt、excerpt_start、excerpt_end、excerpt_hash、evidence_type、stance、relevance_score、is_valid、invalidated_at、invalidation_reason、created_at。
+id、message_id、excerpt、excerpt_start、excerpt_end、excerpt_hash、evidence_type、stance、relevance_score、is_valid、invalidated_at、invalidation_reason、created_at、evidence_fingerprint。
 
 - `stance`: supports/contradicts/context。
 - excerpt 是有边界的证据快照；偏移必须构成正区间，SHA-256 hash 用于检测原文变化。
 - `relevance_score` 在 0 到 1 之间。
 - `is_valid=false` 时必须有 `invalidated_at`；完整的状态传播原因由后续 Service 决定。
 - `message_id` 非空且建立索引；Message 被排除或归档时，Evidence 仍保留，不得级联删除。
+- 阶段 7 新 Evidence 要求 64 位 `evidence_fingerprint`。它由消息 ID、受控 evidence type、excerpt SHA-256 和 `evidence-1.0` 版本生成并建立唯一索引；旧数据允许 NULL，SQLite 中多个 NULL 不冲突。
+- excerpt 只从本地完整 `normalized_content` 生成，最多 500 字符；超长时使用确定性前缀加 `[TRUNCATED]`。模型不能提供 excerpt。
 
 ### Insight
 
-阶段 2 的最小字段为：id、category、insight_type、title、statement、confidence、status、evidence_state、valid_from、valid_to、created_at、updated_at、model_name、extraction_version、reasoning_basis、alternative_explanations(JSON)、metadata_json。
+当前字段为：id、category、insight_type、title、statement、confidence、status、evidence_state、valid_from、valid_to、created_at、updated_at、model_name、provider_name、provider_request_id、extraction_version、insight_fingerprint、model_confidence、confidence_version、reasoning_basis、alternative_explanations(JSON)、metadata_json。
 
 `insight_type`: fact/preference/pattern/inference/hypothesis/contradiction/change。
 
@@ -127,7 +129,9 @@ id、message_id、excerpt、excerpt_start、excerpt_end、excerpt_hash、evidenc
 
 `evidence_state`: valid/partial/invalid。`confidence` 在 0 到 1 之间，`valid_to >= valid_from`。insight_type、status、confidence 均有当前查询所需索引。
 
-阶段 2 不实现语义判定、候选创建、证据状态传播或置信度算法。系统分数因子、公式版本和用户覆盖值在阶段 8 按真实算法加入，hypothesis 的数值上限也留到阶段 8 决策，不在当前数据库中任意硬编码。
+阶段 7 对新候选强制 64 位唯一 `insight_fingerprint`，由抽取版本、类型、受控类别、仅裁边/折叠空白后的 statement 和 UTC 有效期生成；旧数据允许 NULL，多个 NULL 不冲突。它只做精确幂等，不做大小写折叠、语义相似度、embedding 或用户内容覆盖。
+
+`model_confidence` 是 Provider 的 0–1 自评，与最终 `confidence` 分离。阶段 7 新候选固定 `confidence=0.0` 和 `confidence_version=unscored`；该组合表示阶段 8 尚未评分，不表示科学计算结果为零。`provider_name` 和 `provider_request_id` 保存安全来源标识，不保存 Prompt、模型响应、Key 或聊天全文。
 
 ### InsightEvidence
 
@@ -163,7 +167,7 @@ id、generated_at、profile_version、schema_version、markdown_content、json_c
 - change：同一主题至少覆盖两个不同时间点。
 - contradiction：双方 Evidence 必须同时保留。
 
-阶段 2 只保证枚举、字段、范围、外键和关联结构，既不生成 Insight，也不声称数据库已验证上述语义。后续规则必须在创建、编辑、确认和 Profile 生成入口重复校验，不能只依赖前端。
+阶段 7 的候选 Service 已执行上述最低机械约束，并始终创建 `proposed`；这些规则不能证明心理学真实性或完整独立事件语义。阶段 8 仍需计算可解释最终置信度，后续编辑、确认和 Profile 入口也必须重复验证，不能只依赖前端。
 
 ## 7. 待确认问题
 
