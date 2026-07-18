@@ -194,6 +194,16 @@
 - 原因：用户审核状态必须是档案入口的唯一真值；共享结构和三层指纹使语义一致、幂等、完整性和 stale 都可测试；不可变历史避免证据变化静默重写过去。
 - 后果：`generated_as_of` 是 generation options 的一部分；相同来源但不同该值可形成不同历史快照。当前没有 proposed Profile、Profile 编辑、Snapshot 删除、PDF/Word、云分享或公开链接；这些都需新的产品和隐私决策。
 
+## ADR-025：阶段 11 以薄同步分析入口闭合用户流程
+
+- 状态：Accepted
+- 日期：2026-07-18
+- 决策：把“已存在内部 Extraction/Confidence，但普通用户无法触发”定为 MVP BLOCKER。新增 `GET /analysis/capabilities`、`POST /analysis` 和 `/analysis` 页面；入口只接受明确 Conversation ID、可选带时区范围、停止策略和逐请求 remote consent。
+- 决策：Provider 名称、模型、endpoint、Key、Prompt、窗口参数、抽取版本和 Confidence 权重全部由服务端固定；生产默认 Mock 仍返回空候选。应用工厂只为自动测试提供显式 Provider Factory 注入，不把 fixture 变成运行时设置。
+- 决策：分析层不创建 AnalysisRun/ExtractionRun。Provider 调用仍在事务外；Extraction 保持窗口短事务，Confidence 保持单 Insight 短事务。抽取成功而评分部分失败时保留 Insight，并返回失败计数和受控错误。
+- 原因：这是闭合导入→分析→审核→Profile 的最小改动，同时保持 local-first、可追溯和既有版本化算法边界。
+- 后果：分析是同步请求，没有后台恢复、进度百分比、跨窗口语义聚合或独立评分 API；大范围或远程调用的延迟由当前 HTTP 请求承担。
+
 ## 尚未决策
 
 1. 获得授权脱敏 WeFlow 样本后的真实字段映射。

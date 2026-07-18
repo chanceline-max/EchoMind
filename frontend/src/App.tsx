@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import { Layout } from "./components/Layout";
+import { AnalysisPage } from "./pages/AnalysisPage";
 import { ConversationDetailPage } from "./pages/ConversationDetailPage";
 import { ConversationsPage } from "./pages/ConversationsPage";
 import { HomePage } from "./pages/HomePage";
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
       { path: "imports/:sourceFileId", element: <ImportDetailPage /> },
       { path: "conversations", element: <ConversationsPage /> },
       { path: "conversations/:conversationId", element: <ConversationDetailPage /> },
+      { path: "analysis", element: <AnalysisPage /> },
       { path: "insights", element: <InsightsPage /> },
       { path: "insights/:insightId", element: <InsightDetailPage /> },
       { path: "profiles", element: <ProfilesPage /> },

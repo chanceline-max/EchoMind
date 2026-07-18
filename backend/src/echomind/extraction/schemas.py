@@ -176,6 +176,7 @@ class ExtractionReport(ExtractionSchema):
     evidence_reused: int = Field(ge=0)
     links_created: int = Field(ge=0)
     links_reused: int = Field(ge=0)
+    insight_ids: list[str] = Field(default_factory=list)
     stopped_early: bool
     window_results: list[WindowResult] = Field(default_factory=list)
     errors: list[ExtractionErrorRecord] = Field(default_factory=list)

@@ -13,9 +13,14 @@ from echomind.api.middleware import ImportRequestGuardMiddleware
 from echomind.api.v1.router import api_router
 from echomind.core.config import Settings, get_settings
 from echomind.db.session import create_db_engine, create_session_factory
+from echomind.services.analysis_service import ProviderFactory, default_provider_factory
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    analysis_provider_factory: ProviderFactory = default_provider_factory,
+) -> FastAPI:
     """Create an application using explicit settings when supplied by tests."""
     app_settings = settings or get_settings()
     engine = create_db_engine(app_settings.database_url)
@@ -33,6 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.settings = app_settings
     application.state.engine = engine
     application.state.session_factory = create_session_factory(engine)
+    application.state.analysis_provider_factory = analysis_provider_factory
     application.add_exception_handler(ApiError, cast(Any, api_error_handler))
     application.add_exception_handler(
         RequestValidationError,

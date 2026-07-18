@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from sqlalchemy import select
@@ -30,6 +30,7 @@ class PersistenceCounts:
     evidence_reused: int = 0
     links_created: int = 0
     links_reused: int = 0
+    insight_ids: list[str] = field(default_factory=list)
 
 
 def _persist(
@@ -81,6 +82,8 @@ def _persist(
             counts.insights_created += 1
         else:
             counts.insights_reused += 1
+        if insight.id not in counts.insight_ids:
+            counts.insight_ids.append(insight.id)
         for reference, context_message in validated.evidence:
             bound = bind_evidence(reference, context_message)
             evidence = session.scalar(

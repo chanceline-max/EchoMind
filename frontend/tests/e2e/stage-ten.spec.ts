@@ -51,9 +51,10 @@ test("generates, reuses, stales, and explicitly exports immutable EchoProfiles",
   await page.getByRole("button", { name: "导出 JSON" }).click();
   expect((await jsonDownload).suggestedFilename()).toContain("echoprofile");
 
-  const source = await page.evaluate(async (profileHref) => {
+  const source: unknown = await page.evaluate(async (profileHref) => {
     const response = await fetch(`http://127.0.0.1:8000/api/v1${profileHref}`);
-    return response.json();
+    const value: unknown = await response.json();
+    return value;
   }, profileHref);
   const backgroundSource = findBackgroundSource(source);
   await page.goto(`/insights/${backgroundSource.insightId}`);

@@ -126,7 +126,7 @@ eligible messages → deterministic chunks → overlapping context windows
 - Insight 指纹由抽取版本、类型、受控类别、保守空白规范化 statement 和有效期生成；Evidence 指纹由消息 ID、Evidence 类型、excerpt SHA-256 和指纹版本生成。第一版不做 embedding、语义相似度或跨窗口自动合并。
 - Provider 调用前关闭读取 Session，不在网络期间持有数据库事务。每窗合法候选在一个短事务内整体提交或回滚；前序成功窗口保留。`stop_on_window_error` 决定失败后停止或继续，重复运行通过唯一指纹恢复。
 - 新候选固定 `proposed/valid`，`confidence=0.0`、`confidence_version=unscored` 表示阶段 8 尚未评分；`model_confidence` 单独保存。复用既有 Insight 时不覆盖 title/statement/status，可补充未关联 Evidence。
-- `ExtractionReport` 仅含 ID、计数、状态和受控错误，不含正文、excerpt、Prompt、Provider 响应或路径。阶段 7 没有 ExtractionRun、分析 HTTP API、前端页面、最终置信度或 Profile。
+- `ExtractionReport` 仅含 ID、计数、状态和受控错误，不含正文、excerpt、Prompt、Provider 响应或路径。阶段 11 的薄分析层读取其中的去重 `insight_ids` 并调用既有 Confidence 服务；仍没有 ExtractionRun、后台任务或跨窗口语义合并。
 
 ### 4.3 置信度重算
 
@@ -143,7 +143,7 @@ explicit Insight IDs + as_of → content-free database snapshot
 - 普通类型使用 explicitness、quantity、temporal span、跨会话分布、quality、recency 六个正向因子和 contradiction penalty；contradiction 使用 bilateral balance 代替 explicitness 且不应用该惩罚。七类 base、depth penalty 和 cap 固定在 `confidence-1.0`，Decimal 中间值按 ROUND_HALF_UP 四位小数持久化。
 - `model_confidence` 只作来源审计，公式权重为 0 且不进入输入指纹。指纹包含版本、`as_of` 和全部结构化评分输入；相同指纹、版本、`as_of` 且 evidence_state 一致时不执行 UPDATE。
 - 每个 Insight 单独读取、纯计算并在短写事务内只更新评分字段与 evidence_state；不修改 title、statement、status、model_confidence、Evidence 或关联。`force_recalculate` 可以刷新计算时间但不创建 History/Run 记录。
-- `ConfidenceReport/Error` 只含 ID、状态、计数、规则码和安全值；解释由固定本地模板生成，明确它是机械支撑强度而非科学概率。阶段 8 没有独立评分 API、用户 override、ConfidenceHistory 或 Profile。
+- `ConfidenceReport/Error` 只含 ID、状态、计数、规则码和安全值；解释由固定本地模板生成，明确它是机械支撑强度而非科学概率。阶段 11 仅由同步分析入口对本次 created/reused Insight 触发评分；没有独立权重 API、用户 override 或 ConfidenceHistory。
 
 ### 4.4 Insight 审核与证据传播
 
@@ -200,7 +200,7 @@ class LLMProvider(Protocol):
 
 - 前缀 `/api/v1`；OpenAPI 是前后端契约来源。
 - 阶段 1 已实现 `GET /api/v1/health`，固定返回 `status`、`service`、`version` 三个公开字段；响应由 Pydantic Schema 校验，不包含环境配置。
-- 阶段 5 提供导入、会话和消息接口；阶段 9 增加 Insight 审核；阶段 10 增加 Profile 生成、列表、详情和显式 Markdown/JSON 导出。没有 Profile PATCH/DELETE。
+- 阶段 5 提供导入、会话和消息接口；阶段 9 增加 Insight 审核；阶段 10 增加 Profile；阶段 11 增加 `GET /analysis/capabilities` 与 `POST /analysis`，按服务端 Provider 配置同步组合 Extraction 与 Confidence。请求不接受 Key、endpoint、Prompt、模型参数、版本或评分权重。没有 AnalysisRun、独立 Confidence 写路由或任何 DELETE。
 - 列表 API 使用稳定排序和 limit/offset 分页，避免一次返回全部消息。
 - 错误使用统一安全结构：`error_code`、`message`、`recoverable`、可选安全文件名/结构位置和 `details`。
 - 修改 Insight 使用乐观并发版本号，防止覆盖用户刚完成的编辑。

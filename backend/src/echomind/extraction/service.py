@@ -111,6 +111,7 @@ def _empty_report(
         evidence_reused=0,
         links_created=0,
         links_reused=0,
+        insight_ids=[],
         stopped_early=False,
     )
 
@@ -223,6 +224,9 @@ def extract_candidates(
         report.evidence_reused += counts.evidence_reused
         report.links_created += counts.links_created
         report.links_reused += counts.links_reused
+        report.insight_ids.extend(
+            insight_id for insight_id in counts.insight_ids if insight_id not in report.insight_ids
+        )
         report.window_results.append(
             WindowResult(
                 window_id=window.window_id,

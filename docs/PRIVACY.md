@@ -11,7 +11,7 @@
 - 默认绑定 `127.0.0.1`，不开放公网或局域网。
 - 默认 SQLite 和本地文件目录；默认关闭遥测、崩溃上报和外部分析。
 - 默认不配置远程模型；Mock 和纯规则模式可完成测试。
-- 远程模型调用必须同时由服务端显式启用和当前请求显式 consent；阶段 7 的内部请求明确 Provider、会话/时间范围和窗口参数。当前尚无分析 UI，调用方必须在外层提供发送范围说明和用户确认。
+- 远程模型调用必须同时由服务端显式启用和当前请求显式 consent；`/analysis` 页面明确提示远程 Provider 会收到所选会话窗口的 `normalized_content`，并要求本次复选确认。浏览器不能配置 Key、endpoint、Prompt 或模型参数。
 - 不加载远程字体、追踪像素或第三方前端资源。
 - 真实聊天、数据库、档案、密钥和 `.env` 不进入 Git。
 - MVP 不提供证据链数据的不可逆物理删除；归档和排除必须保留原始内容并传播 Evidence 失效状态。
@@ -82,7 +82,7 @@ data/
 - 单条 Provider 内容最多发送请求上限，默认 4000 字符，采用确定性前缀和 `[TRUNCATED]`；每窗默认最多 40 条/12000 字符且不跨会话。远程调用经双重授权后**会发送这些窗口内的 normalized_content**，不能声称完全不外发聊天内容。
 - 模型只返回候选字段与局部 Evidence 引用。Evidence excerpt 在本地从完整 `normalized_content` 生成，不接受模型 excerpt；Prompt 和完整 Provider 输出不写数据库、不缓存、不写日志。
 - Insight/Evidence 指纹在数据库只保存 SHA-256，不把正文作为唯一键。ExtractionReport、WindowResult 和 ExtractionError 仅含受控 ID、计数、规则和状态，不含正文、excerpt、Prompt、响应、参与者姓名或路径。
-- 自动测试使用完全合成内容、离线 Mock 或 MockTransport；没有真实网络。当前没有分析 HTTP API、浏览器 Insight 缓存或前端 Insight 页面。
+- 自动测试使用完全合成内容、离线 Mock 或 MockTransport；默认闭环没有真实网络。阶段 11 分析 API/UI 只返回 ID、计数、状态和受控错误，TanStack Query 仅内存保存响应，所有请求使用 `cache: no-store`，服务端响应设置 `no-store`。
 
 ### 阶段 8 Confidence 隐私边界
 
@@ -91,7 +91,7 @@ data/
 - `model_confidence` 仍保留用于审计，但不进入公式和输入指纹。修改模型自评不会触发重算，也不会改变最终支撑强度。
 - `confidence_factors_json` 只保存数值、计数、UTC 时间、版本和安全规则码；`confidence_explanation` 由固定模板生成，不包含 Message/Evidence ID 或正文。Report/Error 只返回 ID、状态、计数和白名单 details，不返回 SQL、traceback 或路径。
 - 输入指纹是结构化字段的 SHA-256。Evidence fingerprint 的变化会间接触发重算，但正文或 excerpt 不被直接复制到评分指纹、报告、解释或日志。
-- Confidence 没有 HTTP API、浏览器缓存、前端页面、模型请求缓存、遥测或 ConfidenceHistory。每个 Insight 的短事务只更新评分字段和 evidence_state，不修改 Evidence、聊天正文或用户编辑内容。
+- Confidence 没有独立调参 HTTP API、持久浏览器缓存、模型请求缓存、遥测或 ConfidenceHistory。阶段 11 同步分析入口只把本次抽取返回的 Insight ID 交给既有评分服务；每个 Insight 的短事务只更新评分字段和 evidence_state，不修改 Evidence、聊天正文或用户编辑内容。
 - 文档和解释统一称“当前证据在机械规则下的支撑强度”，明确不是科学概率、诊断可信度或用户可信程度；低分不构成对用户的价值评价。
 
 ### 阶段 9 审核隐私边界
