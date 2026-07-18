@@ -246,14 +246,15 @@ OpenAPI 自动枚举 24 条 API method/path，9 条写路由。完整列表：
 - SQLite/本地文件未做应用层静态加密；主机账号和磁盘安全仍是边界。
 - 没有物理删除 UI；证据链优先使用归档、排除和状态。
 - 仅 Windows 实测；没有生产 SLA、安全认证或合规认证。
-- 0.1.0 发布仍需项目所有者手动配置远程仓库、推送、创建 tag 和 Release。
 
 ## 19. 发布建议
+
+发布后状态（2026-07-18）：[EchoMind v0.1.0](https://github.com/chanceline-max/EchoMind/releases/tag/v0.1.0) 已在公开仓库 [chanceline-max/EchoMind](https://github.com/chanceline-max/EchoMind) 正式发布，GitHub 已识别 Apache-2.0，Private Vulnerability Reporting 已启用。本状态更新不改变本审计的 **PASS_WITH_LIMITATIONS** 结论和技术限制。
 
 | 用途 | 建议 |
 |---|---|
 | 本地开发者 MVP 使用 | 可以；仅在理解限制并备份数据后使用 |
-| 公开发布源码 | Apache-2.0 许可和社区材料已准备；项目所有者仍需审阅并手动执行远程发布 |
+| 公开发布源码 | 已按 Apache-2.0 正式发布；继续保留 MVP 限制、隐私警告和非生产就绪声明 |
 | 接受外部贡献 | 可以按 CONTRIBUTING 和 Apache-2.0 贡献许可审查；不得接收真实聊天或无权提交的材料 |
 | 处理真实敏感聊天 | 谨慎且不建议作为默认承诺；先做备份、磁盘/账号保护、远程 Provider 政策审查 |
 | 生产或多用户部署 | 不建议；未审计认证、权限、加密、运维和多租户 |
