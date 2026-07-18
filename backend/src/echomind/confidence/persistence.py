@@ -192,49 +192,12 @@ def persist_score(
     session = session_factory()
     try:
         with session.begin():
-            current = session.execute(
-                select(
-                    Insight.confidence_input_fingerprint,
-                    Insight.confidence_version,
-                    Insight.confidence_as_of,
-                    Insight.evidence_state,
-                ).where(Insight.id == score.insight_id)
-            ).one_or_none()
-            if current is None:
-                raise ConfidenceError(
-                    ConfidenceErrorCode.INSIGHT_NOT_FOUND,
-                    message="The requested Insight no longer exists.",
-                    request_id=request_id,
-                    insight_id=score.insight_id,
-                    recoverable=True,
-                )
-            unchanged = (
-                current.confidence_input_fingerprint == score.confidence_input_fingerprint
-                and current.confidence_version == score.confidence_version
-                and same_utc_instant(current.confidence_as_of, score.as_of)
-                and current.evidence_state is score.evidence_state
+            return persist_score_in_session(
+                session,
+                score,
+                request_id=request_id,
+                force_recalculate=force_recalculate,
             )
-            if unchanged and not force_recalculate:
-                return score.model_copy(update={"changed": False})
-            session.execute(
-                update(Insight)
-                .where(Insight.id == score.insight_id)
-                .values(
-                    confidence=score.final_confidence,
-                    confidence_version=score.confidence_version,
-                    confidence_input_fingerprint=score.confidence_input_fingerprint,
-                    confidence_factors_json={
-                        **score.factors.model_dump(mode="json"),
-                        "minimum_rule_passed": score.minimum_rule_passed,
-                        "minimum_rule_code": score.minimum_rule_code.value,
-                    },
-                    confidence_explanation=score.explanation,
-                    confidence_as_of=score.as_of,
-                    confidence_calculated_at=score.calculated_at,
-                    evidence_state=score.evidence_state,
-                )
-            )
-        return score.model_copy(update={"changed": True})
     except ConfidenceError:
         session.rollback()
         raise
@@ -250,3 +213,56 @@ def persist_score(
         ) from None
     finally:
         session.close()
+
+
+def persist_score_in_session(
+    session: Session,
+    score: ConfidenceScore,
+    *,
+    request_id: str,
+    force_recalculate: bool,
+) -> ConfidenceScore:
+    """Persist inside a caller-owned transaction without committing it."""
+    current = session.execute(
+        select(
+            Insight.confidence_input_fingerprint,
+            Insight.confidence_version,
+            Insight.confidence_as_of,
+            Insight.evidence_state,
+        ).where(Insight.id == score.insight_id)
+    ).one_or_none()
+    if current is None:
+        raise ConfidenceError(
+            ConfidenceErrorCode.INSIGHT_NOT_FOUND,
+            message="The requested Insight no longer exists.",
+            request_id=request_id,
+            insight_id=score.insight_id,
+            recoverable=True,
+        )
+    unchanged = (
+        current.confidence_input_fingerprint == score.confidence_input_fingerprint
+        and current.confidence_version == score.confidence_version
+        and same_utc_instant(current.confidence_as_of, score.as_of)
+        and current.evidence_state is score.evidence_state
+    )
+    if unchanged and not force_recalculate:
+        return score.model_copy(update={"changed": False})
+    session.execute(
+        update(Insight)
+        .where(Insight.id == score.insight_id)
+        .values(
+            confidence=score.final_confidence,
+            confidence_version=score.confidence_version,
+            confidence_input_fingerprint=score.confidence_input_fingerprint,
+            confidence_factors_json={
+                **score.factors.model_dump(mode="json"),
+                "minimum_rule_passed": score.minimum_rule_passed,
+                "minimum_rule_code": score.minimum_rule_code.value,
+            },
+            confidence_explanation=score.explanation,
+            confidence_as_of=score.as_of,
+            confidence_calculated_at=score.calculated_at,
+            evidence_state=score.evidence_state,
+        )
+    )
+    return score.model_copy(update={"changed": True})

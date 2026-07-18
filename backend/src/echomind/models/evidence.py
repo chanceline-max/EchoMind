@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Enum,
@@ -82,6 +83,11 @@ class Evidence(Base):
     is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     invalidated_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     invalidation_reason: Mapped[str | None] = mapped_column(String(500))
+    invalidation_reasons_json: Mapped[list[str]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
     evidence_fingerprint: Mapped[str | None] = mapped_column(String(64))
 

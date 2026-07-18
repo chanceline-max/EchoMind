@@ -38,6 +38,7 @@ testpaths = ["tests"]
 target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
+extend-exclude = ["migrations/versions/20260718_0003_extraction_provenance.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

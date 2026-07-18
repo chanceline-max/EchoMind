@@ -1,18 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 
-import { fetchConversation, fetchMessages, setMessageExcluded } from "../api/conversations";
+import { fetchConversation, fetchMessageLocation, fetchMessages, setMessageExcluded } from "../api/conversations";
 import { MessageCard } from "../components/MessageCard";
 import { Pagination } from "../components/Pagination";
 import type { MessageSummary } from "../types/api";
 
 export function ConversationDetailPage() {
   const id = useParams().conversationId ?? "";
-  const [offset, setOffset] = useState(0);
+  const [searchParams] = useSearchParams();
+  const targetMessageId = searchParams.get("message") ?? "";
+  const [manualOffset, setManualOffset] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const detail = useQuery({ queryKey: ["conversation", id], queryFn: () => fetchConversation(id), enabled: Boolean(id), staleTime: 0, gcTime: 60_000 });
+  const location = useQuery({ queryKey: ["message-location", targetMessageId], queryFn: () => fetchMessageLocation(targetMessageId), enabled: Boolean(targetMessageId) });
+  const offset = manualOffset ?? (location.data?.conversation_id === id ? location.data.suggested_offset : 0);
   const messages = useQuery({ queryKey: ["messages", id, offset], queryFn: () => fetchMessages(id, offset), enabled: Boolean(id), staleTime: 0, gcTime: 30_000 });
+  useEffect(() => {
+    if (!messages.data || !targetMessageId) return;
+    document.getElementById(`message-${targetMessageId}`)?.scrollIntoView({ block: "center" });
+  }, [messages.data, targetMessageId]);
   const exclusion = useMutation({
     mutationFn: (message: MessageSummary) => setMessageExcluded(message.id, !message.excluded_from_analysis),
     onSuccess: async () => {
@@ -20,6 +28,8 @@ export function ConversationDetailPage() {
         queryClient.invalidateQueries({ queryKey: ["messages", id] }),
         queryClient.invalidateQueries({ queryKey: ["conversation", id] }),
         queryClient.invalidateQueries({ queryKey: ["conversations"] }),
+        queryClient.invalidateQueries({ queryKey: ["insights"] }),
+        queryClient.invalidateQueries({ queryKey: ["insight"] }),
       ]);
     },
   });
@@ -37,8 +47,8 @@ export function ConversationDetailPage() {
       {messages.isPending && <p>正在读取消息…</p>}
       {messages.isError && <p className="error-box">无法读取消息。</p>}
       {messages.data && <>
-        <div className="message-list">{messages.data.items.map((message) => <MessageCard key={message.id} message={message} changing={exclusion.isPending && exclusion.variables?.id === message.id} onToggleExcluded={(item) => exclusion.mutate(item)} />)}</div>
-        <Pagination offset={offset} limit={messages.data.limit} total={messages.data.total} onChange={setOffset} />
+        <div className="message-list">{messages.data.items.map((message) => <MessageCard key={message.id} message={message} highlighted={message.id === targetMessageId} changing={exclusion.isPending && exclusion.variables?.id === message.id} onToggleExcluded={(item) => exclusion.mutate(item)} />)}</div>
+        <Pagination offset={offset} limit={messages.data.limit} total={messages.data.total} onChange={setManualOffset} />
       </>}
     </main>
   );

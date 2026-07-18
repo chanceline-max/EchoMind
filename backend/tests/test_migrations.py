@@ -18,6 +18,7 @@ CORE_TABLES = {
     "evidence",
     "insights",
     "insight_evidence",
+    "insight_revisions",
     "profile_snapshots",
 }
 
@@ -91,10 +92,18 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
             "confidence_explanation",
             "confidence_as_of",
             "confidence_calculated_at",
+            "revision_number",
+            "superseded_by_insight_id",
+            "review_note",
+            "reviewed_at",
         } <= insight_columns.keys()
         assert insight_columns["confidence_version"]["nullable"] is False
         evidence_columns = {item["name"] for item in database_inspector.get_columns("evidence")}
-        assert "evidence_fingerprint" in evidence_columns
+        assert {"evidence_fingerprint", "invalidation_reasons_json"} <= evidence_columns
+        assert any(
+            item["name"] == "ix_insight_revisions_insight_id"
+            for item in database_inspector.get_indexes("insight_revisions")
+        )
         snapshot_indexes = database_inspector.get_indexes("profile_snapshots")
         assert any(item["name"] == "ix_profile_snapshots_generated_at" for item in snapshot_indexes)
 
@@ -118,7 +127,7 @@ def test_upgrade_downgrade_upgrade_lifecycle(migration_database_path: Path) -> N
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-        assert revision == "20260719_0004"
+        assert revision == "20260720_0005"
         assert CORE_TABLES <= set(inspect(engine).get_table_names())
     finally:
         engine.dispose()
@@ -446,4 +455,99 @@ def test_stage_eight_upgrade_preserves_unscored_insight_and_round_trips(
         item["name"] for item in inspect(engine).get_columns("insights")
     }
     engine.dispose()
+    command.upgrade(config, "head")
+
+
+def test_stage_nine_upgrade_preserves_insight_and_revision_constraints(
+    migration_database_path: Path,
+) -> None:
+    database_path = migration_database_path
+    config = alembic_config(database_path)
+    command.upgrade(config, "20260719_0004")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    insight_id = "00000000-0000-4000-8000-000000000091"
+    replacement_id = "00000000-0000-4000-8000-000000000092"
+    revision_id = "00000000-0000-4000-8000-000000000093"
+    now = "2026-07-20 00:00:00"
+    statement = text(
+        "INSERT INTO insights "
+        "(id, category, insight_type, title, statement, confidence, status, "
+        "evidence_state, created_at, updated_at, extraction_version, "
+        "alternative_explanations, metadata, confidence_version, explicit_self_report) "
+        "VALUES (:id, 'background', 'fact', :title, :statement, 0, 'proposed', "
+        "'valid', :now, :now, 'candidate-extraction-1.0', '[]', '{}', 'unscored', 1)"
+    )
+    with engine.begin() as connection:
+        connection.execute(
+            statement,
+            {
+                "id": insight_id,
+                "title": "Synthetic old title",
+                "statement": "Synthetic old statement.",
+                "now": now,
+            },
+        )
+        connection.execute(
+            statement,
+            {
+                "id": replacement_id,
+                "title": "Synthetic replacement",
+                "statement": "Synthetic replacement statement.",
+                "now": now,
+            },
+        )
+    engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    with engine.begin() as connection:
+        preserved = connection.execute(
+            text(
+                "SELECT statement, revision_number, review_note, "
+                "superseded_by_insight_id FROM insights WHERE id=:id"
+            ),
+            {"id": insight_id},
+        ).one()
+        assert tuple(preserved) == ("Synthetic old statement.", 0, None, None)
+        connection.execute(
+            text(
+                "INSERT INTO insight_revisions "
+                "(id, insight_id, revision_number, action, actor_type, created_at, "
+                "expected_previous_revision, changed_fields_json, snapshot_json, note) "
+                "VALUES (:revision, :insight, 1, 'confirmed', 'local_user', :now, "
+                "0, '{}', '{}', NULL)"
+            ),
+            {"revision": revision_id, "insight": insight_id, "now": now},
+        )
+        connection.execute(
+            text(
+                "UPDATE insights SET revision_number=1, status='superseded', "
+                "superseded_by_insight_id=:replacement WHERE id=:insight"
+            ),
+            {"replacement": replacement_id, "insight": insight_id},
+        )
+    with pytest.raises(IntegrityError):
+        with engine.begin() as connection:
+            connection.execute(
+                text("UPDATE insights SET superseded_by_insight_id=:insight WHERE id=:insight"),
+                {"insight": insight_id},
+            )
+    engine.dispose()
+
+    command.downgrade(config, "20260719_0004")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    try:
+        inspector = inspect(engine)
+        assert "insight_revisions" not in inspector.get_table_names()
+        assert "revision_number" not in {item["name"] for item in inspector.get_columns("insights")}
+        with engine.connect() as connection:
+            assert (
+                connection.execute(
+                    text("SELECT statement FROM insights WHERE id=:id"),
+                    {"id": insight_id},
+                ).scalar_one()
+                == "Synthetic old statement."
+            )
+    finally:
+        engine.dispose()
     command.upgrade(config, "head")

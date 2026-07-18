@@ -171,6 +171,17 @@
 - 原因：Evidence 驱动的机械分数比模型自评更可追溯、可测试、可版本化；content-free 数学层减少正文泄露面，也使 title/statement 的用户编辑不会意外改变分数。
 - 后果：权重是第一版产品规则，不是经过统计校准的科学概率；跨会话数量只是证据分布，不代表真实社会关系多样性。未来若调整权重必须新增 confidence 版本，不能无痕改写 1.0。
 
+## ADR-023：阶段 9 使用乐观并发、追加式审核历史与原因集合传播
+
+- 状态：Accepted
+- 日期：2026-07-20
+- 决策：Insight 当前行保存单调 `revision_number`、最近审核字段和可空 supersede 目标；每次用户或系统审核写入必须以条件 UPDATE 领取下一个 revision，并在同一事务追加不可更新/删除的 `InsightRevision`。旧 `expected_revision` 返回 409，不自动重放或覆盖。
+- 决策：普通编辑只开放 title、statement、category、insight_type、有效期和 review_note；status 使用显式动作。title/statement/category/note 不触发 confidence，类型/有效期、restore 和活动 Insight 的 Evidence 变化通过 caller-owned 事务入口重算。model_confidence、抽取指纹和 Evidence 不可由审核 PATCH 修改。
+- 决策：Evidence 使用 `invalidation_reasons_json` 组合原因。Message 最终不可分析时加入 `source_message_excluded`；恢复时仅移除该原因，全部原因清空后才恢复 valid。传播同时更新相关 Insight 并追加 system Revision，任一步失败整体回滚。
+- 决策：审核 API/UI 默认本地、敏感响应 no-store、浏览器查询仅内存；Evidence 参与者只显示匿名角色。rejected/superseded 不删除 Insight、Evidence 或历史，不提供物理删除 API。
+- 原因：单用户本地 SQLite 仍可能有两个标签页并发编辑；条件 revision 比最后写入获胜更可解释。原因集合避免消息恢复错误覆盖其他失效来源，append-only 历史让用户和系统传播都可追溯。
+- 后果：当前没有批量审核、多用户 actor 身份、用户 confidence override、直接 Evidence 编辑或 Profile。SQLite 写入仍应保持短事务；Profile 对 Evidence 失效的处理留给阶段 10。
+
 ## 尚未决策
 
 1. 获得授权脱敏 WeFlow 样本后的真实字段映射。

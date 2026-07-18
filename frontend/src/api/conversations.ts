@@ -61,3 +61,22 @@ export async function setMessageExcluded(id: string, excluded: boolean): Promise
   if (!validMessage(value)) throw invalid();
   return value;
 }
+
+export interface MessageLocation {
+  message_id: string;
+  conversation_id: string;
+  zero_based_index: number;
+  suggested_offset: number;
+}
+
+export async function fetchMessageLocation(id: string): Promise<MessageLocation> {
+  const value = await apiJson(`/api/v1/messages/${encodeURIComponent(id)}/location`);
+  if (
+    !isRecord(value) ||
+    typeof value.message_id !== "string" ||
+    typeof value.conversation_id !== "string" ||
+    typeof value.zero_based_index !== "number" ||
+    typeof value.suggested_offset !== "number"
+  ) throw invalid();
+  return value as unknown as MessageLocation;
+}

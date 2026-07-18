@@ -94,6 +94,14 @@ data/
 - Confidence 没有 HTTP API、浏览器缓存、前端页面、模型请求缓存、遥测或 ConfidenceHistory。每个 Insight 的短事务只更新评分字段和 evidence_state，不修改 Evidence、聊天正文或用户编辑内容。
 - 文档和解释统一称“当前证据在机械规则下的支撑强度”，明确不是科学概率、诊断可信度或用户可信程度；低分不构成对用户的价值评价。
 
+### 阶段 9 审核隐私边界
+
+- Insight/Evidence/Revision 和消息定位响应统一 `Cache-Control: no-store`；错误沿用安全结构，不返回 SQL、traceback、Key、环境变量或本机路径。存在 Origin 的写请求必须精确命中 allowlist；无 Origin 的本地 CLI 维持既有策略。
+- 前端仅使用内存 TanStack Query，不写 localStorage、sessionStorage、IndexedDB、Service Worker 或持久化 Query cache。运行时验证拒绝缺字段、错误 sender role 和畸形 revision 响应；正文使用 React 文本渲染，不使用 `dangerouslySetInnerHTML`。
+- Evidence 详情只公开匿名角色 PROFILE_OWNER/OTHER，不返回参与者姓名、raw_content、Prompt 或 Provider 响应。Revision snapshot 会保存 Insight title/statement 等敏感派生文本，必须按聊天正文同级保护；它不复制消息正文或 Evidence excerpt。
+- 审核不会调用 Provider 或网络模型；E2E 数据由正式本地 Import、离线 Mock Extraction 和 Confidence Service 创建，测试完成后数据库、上传临时目录和 Playwright 结果自动清理。
+- rejected、superseded、消息排除和 Evidence 失效都不是删除。恢复消息只移除用户排除及其派生的 `source_message_excluded`，其他自动或人工原因继续保留。
+
 ### 阶段 4 清洗边界
 
 - Cleaning 只处理调用方已传入的 `ParsedChatFile` 内存对象；不扫描目录、不读取附件、不访问 URL、不调用网络、不创建缓存数据库。
@@ -114,7 +122,7 @@ data/
 ## 8. 用户控制
 
 - 排除或恢复消息参与分析。
-- 查看、修改、驳回、删除 Insight。
+- 查看、修改、确认、驳回、恢复或 supersede Insight；这些操作都不物理删除 Evidence 或历史。
 - 归档 SourceFile/Conversation/Message，排除或恢复 Message 参与分析，并查看受影响 Evidence/Insight/Profile。
 - MVP 不在界面提供不可逆物理删除；未来物理删除必须先显示完整影响范围并二次确认。
 - 导出结构化档案。
@@ -137,7 +145,7 @@ data/
 | 未授权局域网访问 | 默认只监听 localhost；开放网络必须显式配置 |
 | 远程模型过度外发 | 服务端开关 + 逐请求 consent；阶段 7 已实现明确范围、匿名角色、有限单会话窗口和排除过滤，发送前 UI 预览仍属后续任务 |
 | 错误人格推断造成伤害 | 非诊断声明、证据链、类型区分、用户确认和驳回 |
-| 派生档案比原文更敏感 | 与原文同级保护、可删除、无默认分享 |
+| 派生档案比原文更敏感 | 与原文同级保护、可归档/排除、无默认分享；MVP 不声称物理安全擦除 |
 
 ## 10. AI 风险治理
 

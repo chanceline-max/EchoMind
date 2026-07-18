@@ -109,23 +109,25 @@ id、canonical_name、aliases(JSON array)、is_profile_owner、created_at、meta
 
 ### Evidence
 
-id、message_id、excerpt、excerpt_start、excerpt_end、excerpt_hash、evidence_type、stance、relevance_score、is_valid、invalidated_at、invalidation_reason、created_at、evidence_fingerprint。
+id、message_id、excerpt、excerpt_start、excerpt_end、excerpt_hash、evidence_type、stance、relevance_score、is_valid、invalidated_at、invalidation_reason、invalidation_reasons_json、created_at、evidence_fingerprint。
 
 - `stance`: supports/contradicts/context。
 - excerpt 是有边界的证据快照；偏移必须构成正区间，SHA-256 hash 用于检测原文变化。
 - `relevance_score` 在 0 到 1 之间。
-- `is_valid=false` 时必须有 `invalidated_at`；完整的状态传播原因由后续 Service 决定。
+- `is_valid=false` 时必须有 `invalidated_at`；`invalidation_reasons_json` 保存受控、可组合原因。阶段 9 已实现 `source_message_excluded` 的增加/移除，并保留其他原因。
 - `message_id` 非空且建立索引；Message 被排除或归档时，Evidence 仍保留，不得级联删除。
 - 阶段 7 新 Evidence 要求 64 位 `evidence_fingerprint`。它由消息 ID、受控 evidence type、excerpt SHA-256 和 `evidence-1.0` 版本生成并建立唯一索引；旧数据允许 NULL，SQLite 中多个 NULL 不冲突。
 - excerpt 只从本地完整 `normalized_content` 生成，最多 500 字符；超长时使用确定性前缀加 `[TRUNCATED]`。模型不能提供 excerpt。
 
 ### Insight
 
-当前字段为：id、category、insight_type、title、statement、confidence、status、evidence_state、valid_from、valid_to、created_at、updated_at、model_name、provider_name、provider_request_id、extraction_version、insight_fingerprint、model_confidence、explicit_self_report、confidence_version、confidence_input_fingerprint、confidence_factors_json、confidence_explanation、confidence_as_of、confidence_calculated_at、reasoning_basis、alternative_explanations(JSON)、metadata_json。
+当前字段为：id、category、insight_type、title、statement、confidence、status、evidence_state、valid_from、valid_to、created_at、updated_at、model_name、provider_name、provider_request_id、extraction_version、insight_fingerprint、model_confidence、explicit_self_report、confidence_version、confidence_input_fingerprint、confidence_factors_json、confidence_explanation、confidence_as_of、confidence_calculated_at、revision_number、superseded_by_insight_id、review_note、reviewed_at、reasoning_basis、alternative_explanations(JSON)、metadata_json。
 
 `insight_type`: fact/preference/pattern/inference/hypothesis/contradiction/change。
 
 `status`: proposed/confirmed/rejected/superseded。
+
+用户审核状态优先于 AI 候选，且与 confidence 分离。允许 proposed→confirmed/rejected/superseded，confirmed→rejected/superseded，rejected/superseded→proposed/confirmed；普通 PATCH 不能改 status。低 confidence 不阻止确认，status 转换本身不改 confidence。
 
 `evidence_state`: valid/partial/invalid。`confidence` 在 0 到 1 之间，`valid_to >= valid_from`。insight_type、status、confidence 均有当前查询所需索引。
 
@@ -141,6 +143,17 @@ id、message_id、excerpt、excerpt_start、excerpt_end、excerpt_hash、evidenc
 - `confidence_as_of`：recency 的 aware UTC 基准；`confidence_calculated_at`：实际写入的 aware UTC 时间，不参与指纹。
 
 每次评分会重算 evidence_state：有关联且全部有效为 valid，有效/无效混合为 partial，无关联或全部无效为 invalid。invalid 的 confidence 固定 0。评分只更新上述评分字段和 evidence_state，不修改 title、statement、status、model_confidence、Evidence 或 InsightEvidence。
+
+阶段 9 使用 `revision_number` 作为乐观并发版本；首次成功审核从 0 增至 1。`superseded_by_insight_id` 是指向 Insight 的可空 RESTRICT 外键，不允许指向自身或形成应用层循环，且非 superseded 状态必须为空。`review_note` 最长 2000 字符，`reviewed_at` 保存最近审核 UTC 时间。正式 supersede Service 必须提供活动 replacement；迁移兼容旧的 superseded 数据，不从正文猜测 replacement。
+
+### InsightRevision
+
+id、insight_id、revision_number、action、actor_type、created_at、expected_previous_revision、changed_fields_json、snapshot_json、note。
+
+- `(insight_id, revision_number)` 唯一，revision 从 1 单调增长，外键使用 RESTRICT。
+- action 包括 confirmed/rejected/restored_to_proposed/restored_to_confirmed/edited/superseded/evidence_invalidated/evidence_revalidated；actor_type 为 local_user/system。
+- snapshot 保存 title、statement 等当前 Insight 审核快照及 Confidence 字段，因此属于敏感派生文本并只在本地数据库保存；它不复制聊天消息正文、Evidence excerpt、Prompt 或 Provider 响应。
+- ORM 阻止 Revision 更新和删除；API 不提供 Revision 写入或 DELETE 路由。历史修订只追加，不因 restore 或 supersede 被删除。
 
 ### InsightEvidence
 
@@ -158,7 +171,7 @@ id、generated_at、profile_version、schema_version、markdown_content、json_c
 
 - MVP UI/API 不提供 SourceFile、Conversation、Message、Evidence 或 AI Insight 的不可逆物理删除。
 - SourceFile/Conversation/Message 使用 archived 状态；Message 另有 excluded_from_analysis。归档和排除不修改 raw_content、normalized_content 或 file_hash。
-- 后续归档/排除 Service 应在同一事务中把相关 Evidence 标记无效，重新计算 `Insight.evidence_state`，并把受影响 ProfileSnapshot 标记 invalid；该传播逻辑尚未在阶段 2 实现。
+- 阶段 9 的 Message 排除 Service 已在同一事务中更新相关 Evidence、活动 Insight 的 confidence/evidence_state 和系统 Revision；rejected/superseded 只重算 evidence_state，不自动恢复。ProfileSnapshot 传播留到阶段 10。
 - 数据库外键对核心证据链使用 `RESTRICT`，禁止由 ORM cascade 或数据库 cascade 无提示破坏链路。
 - 如果未来增加物理删除，必须先提供影响预览：SourceFile、Conversation、Message、Evidence、Insight、ProfileSnapshot 数量及 ID；用户二次确认后由专用服务在事务内执行，并保留不含正文的结果统计。
 - ProfileSnapshot 含敏感正文，采用与聊天数据相同的本地保护。证据失效的历史快照可以作为历史记录查看，但必须醒目标记，不能作为当前有效档案导出。

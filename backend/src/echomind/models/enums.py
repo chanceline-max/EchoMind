@@ -63,3 +63,27 @@ class EvidenceState(StrEnum):
     VALID = "valid"
     PARTIAL = "partial"
     INVALID = "invalid"
+
+
+class InsightRevisionAction(StrEnum):
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+    RESTORED_TO_PROPOSED = "restored_to_proposed"
+    RESTORED_TO_CONFIRMED = "restored_to_confirmed"
+    EDITED = "edited"
+    SUPERSEDED = "superseded"
+    EVIDENCE_INVALIDATED = "evidence_invalidated"
+    EVIDENCE_REVALIDATED = "evidence_revalidated"
+
+
+class RevisionActorType(StrEnum):
+    LOCAL_USER = "local_user"
+    SYSTEM = "system"
+
+
+class EvidenceInvalidationReason(StrEnum):
+    SOURCE_MESSAGE_EXCLUDED = "source_message_excluded"
+    SOURCE_MESSAGE_ARCHIVED = "source_message_archived"
+    USER_MARKED_INVALID = "user_marked_invalid"
+    SOURCE_MISSING = "source_missing"
+    OTHER_SYSTEM_REASON = "other_system_reason"

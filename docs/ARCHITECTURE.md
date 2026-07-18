@@ -143,7 +143,14 @@ explicit Insight IDs + as_of → content-free database snapshot
 - 普通类型使用 explicitness、quantity、temporal span、跨会话分布、quality、recency 六个正向因子和 contradiction penalty；contradiction 使用 bilateral balance 代替 explicitness 且不应用该惩罚。七类 base、depth penalty 和 cap 固定在 `confidence-1.0`，Decimal 中间值按 ROUND_HALF_UP 四位小数持久化。
 - `model_confidence` 只作来源审计，公式权重为 0 且不进入输入指纹。指纹包含版本、`as_of` 和全部结构化评分输入；相同指纹、版本、`as_of` 且 evidence_state 一致时不执行 UPDATE。
 - 每个 Insight 单独读取、纯计算并在短写事务内只更新评分字段与 evidence_state；不修改 title、statement、status、model_confidence、Evidence 或关联。`force_recalculate` 可以刷新计算时间但不创建 History/Run 记录。
-- `ConfidenceReport/Error` 只含 ID、状态、计数、规则码和安全值；解释由固定本地模板生成，明确它是机械支撑强度而非科学概率。阶段 8 没有评分 API、审核 UI、用户 override、ConfidenceHistory 或 Profile。
+- `ConfidenceReport/Error` 只含 ID、状态、计数、规则码和安全值；解释由固定本地模板生成，明确它是机械支撑强度而非科学概率。阶段 8 没有独立评分 API、用户 override、ConfidenceHistory 或 Profile。
+
+### 4.4 Insight 审核与证据传播
+
+- `GET /api/v1/insights` 使用 Evidence 聚合子查询和 EXISTS 筛选，保证多条 Evidence 不复制 Insight；详情匿名返回 PROFILE_OWNER/OTHER、受限 excerpt、失效原因和原消息链接。
+- PATCH/confirm/reject/restore/supersede 先比较 `expected_revision`，再验证状态；条件 UPDATE 只允许一个并发写成功。成功操作与一条 append-only `InsightRevision` 在同一事务提交，409 不修改 Insight 或历史。
+- 普通 PATCH 不能修改 status、confidence、Evidence 或抽取来源。title/statement/category/review_note 不重算；insight_type/有效期、restore 和活动 Insight 的 Evidence 变化调用 caller-owned Confidence 事务入口。
+- Message 的最终排除状态决定 `source_message_excluded` 是否存在。只有全部 Evidence 失效原因清空时才恢复 valid；活动 Insight 重算 confidence，rejected/superseded 只更新 evidence_state。传播失败整体回滚。
 
 ### 4.4 Profile 生成
 
@@ -180,7 +187,7 @@ class LLMProvider(Protocol):
 
 - 前缀 `/api/v1`；OpenAPI 是前后端契约来源。
 - 阶段 1 已实现 `GET /api/v1/health`，固定返回 `status`、`service`、`version` 三个公开字段；响应由 Pydantic Schema 校验，不包含环境配置。
-- 阶段 5 提供 `POST/GET /imports`、`GET /conversations`、会话详情/消息分页和 `PATCH /messages/{id}/analysis-exclusion`；没有 DELETE 路由。
+- 阶段 5 提供导入、会话和消息接口；阶段 9 增加 Insight 列表/详情/Revision、审核动作及消息定位。没有 Insight、Evidence 或 Revision DELETE 路由。
 - 列表 API 使用稳定排序和 limit/offset 分页，避免一次返回全部消息。
 - 错误使用统一安全结构：`error_code`、`message`、`recoverable`、可选安全文件名/结构位置和 `details`。
 - 修改 Insight 使用乐观并发版本号，防止覆盖用户刚完成的编辑。
@@ -228,6 +235,6 @@ archive/exclude Message
 
 - MVP 没有证据链实体的物理删除 API。
 - SourceFile、Conversation、Message、Evidence、Insight 之间使用限制删除语义，不使用数据库级联删除。
-- 阶段 2 只提供归档、排除和有效性字段；归档和排除的事务性状态传播属于后续服务，尚未实现。原始文件、raw_content 和 file_hash 不得改变。
+- 阶段 9 已实现 Message 排除/恢复的事务性 Evidence 与 Insight 传播；ProfileSnapshot 失效传播属于阶段 10。原始文件、raw_content、normalized_content、reply 和 file_hash 不得改变。
 - 历史 Profile 内容不被静默改写；后续查看必须展示证据失效状态，新的正式导出排除 `evidence_state=invalid` 的结论。
 - 未来物理删除必须先计算依赖图和数量、向用户展示、二次确认，再由专用 Service 执行。

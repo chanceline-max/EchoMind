@@ -58,11 +58,11 @@
 
 验收：因子边界、公式、类型 cap、最低规则、Evidence 状态、指纹、隐私、持久化和重算测试通过；model_confidence 不参与；单条弱证据不能越过最低规则；分数明确是机械支撑强度而非心理学概率。
 
-## 阶段 9：实现 Insight 审核界面
+## 阶段 9：实现 Insight 审核界面（已完成）
 
-范围：列表/筛选/详情/Evidence/原消息跳转/编辑/确认/驳回/supersede/用户创建内容归档；保留修订历史。
+已实现：列表/筛选/详情、匿名 Evidence、原消息跳转和高亮、受限编辑、确认/驳回/恢复/supersede、乐观并发、追加式 Revision，以及 Message 排除对 Evidence/Insight/Confidence 的事务传播。
 
-验收：事实、推断和假设视觉区分；模型原始版本不被覆盖；状态转换、乐观并发和关键前端测试通过。
+验收：迁移回环、状态转换、并发 409、Revision 不可更新、Evidence 传播、Confidence 集成、前端运行时验证及阶段 5/9 E2E 通过；没有物理删除、Profile 或模型调用 API。
 
 ## 阶段 10：生成 EchoProfile
 
@@ -92,4 +92,4 @@
 
 ## 当前下一单一任务
 
-执行 **阶段 9：实现 Insight 审核界面与审核 API**。基于阶段 8 已持久化的系统分数、因子、解释和 Evidence 状态，实现列表/详情、证据跳转、确认/编辑/驳回/supersede、乐观并发和修订历史；不得提前实现阶段 10 Profile。
+执行 **阶段 10：生成 EchoProfile**。只读取允许进入档案的 Insight，以共享中间 Schema 生成可追溯的 Markdown/JSON 和 ProfileSnapshot；默认 confirmed-only，并明确处理 Evidence 失效。不得提前进入阶段 11 完整 MVP 审计。

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from echomind.confidence.errors import ConfidenceError, ConfidenceErrorCode
 from echomind.confidence.explanations import build_explanation
@@ -16,6 +18,7 @@ from echomind.confidence.persistence import (
     SessionFactory,
     load_insight_features,
     persist_score,
+    persist_score_in_session,
 )
 from echomind.confidence.schemas import (
     ConfidenceErrorRecord,
@@ -237,3 +240,35 @@ def calculate_confidence(
             report.stopped_early = index < len(request.insight_ids) - 1
             break
     return report
+
+
+def recalculate_confidence_in_session(
+    session: Session,
+    insight_id: str,
+    *,
+    as_of: datetime,
+    calculated_at: datetime,
+    request_id: str,
+) -> ConfidenceScore:
+    """Recalculate one Insight inside a caller-owned atomic review transaction."""
+    request = ConfidenceCalculationRequest(
+        insight_ids=[UUID(insight_id)],
+        as_of=as_of,
+        force_recalculate=True,
+    )
+    session.flush()
+    feature = load_insight_features(session, insight_id, request_id=request_id)
+    if feature is None:
+        raise ConfidenceError(
+            ConfidenceErrorCode.INSIGHT_NOT_FOUND,
+            message="The requested Insight does not exist.",
+            request_id=request_id,
+            insight_id=insight_id,
+        )
+    score = calculate_score(feature, request=request, calculated_at=calculated_at)
+    return persist_score_in_session(
+        session,
+        score,
+        request_id=request_id,
+        force_recalculate=True,
+    )

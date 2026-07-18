@@ -11,6 +11,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
 )
@@ -27,6 +28,7 @@ from echomind.models.enums import (
 
 if TYPE_CHECKING:
     from echomind.models.evidence import Evidence
+    from echomind.models.insight_revision import InsightRevision
 
 
 class InsightEvidence(Base):
@@ -86,6 +88,19 @@ class Insight(Base):
         CheckConstraint(
             "confidence_explanation IS NULL OR length(confidence_explanation) <= 4000",
             name="confidence_explanation_length",
+        ),
+        CheckConstraint("revision_number >= 0", name="revision_number_non_negative"),
+        CheckConstraint(
+            "review_note IS NULL OR length(review_note) <= 2000",
+            name="review_note_length",
+        ),
+        CheckConstraint(
+            "superseded_by_insight_id IS NULL OR superseded_by_insight_id <> id",
+            name="superseded_target_not_self",
+        ),
+        CheckConstraint(
+            "status = 'superseded' OR superseded_by_insight_id IS NULL",
+            name="superseded_status_target_consistent",
         ),
         Index(
             "ux_insights_insight_fingerprint",
@@ -163,6 +178,14 @@ class Insight(Base):
     confidence_explanation: Mapped[str | None] = mapped_column(Text)
     confidence_as_of: Mapped[datetime | None] = mapped_column(UTCDateTime())
     confidence_calculated_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    superseded_by_insight_id: Mapped[str | None] = mapped_column(
+        String(UUID_LENGTH),
+        ForeignKey("insights.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    review_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     reasoning_basis: Mapped[str | None] = mapped_column(Text)
     alternative_explanations: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(
@@ -175,4 +198,9 @@ class Insight(Base):
     evidence_links: Mapped[list[InsightEvidence]] = relationship(
         back_populates="insight",
         passive_deletes="all",
+    )
+    revisions: Mapped[list["InsightRevision"]] = relationship(
+        back_populates="insight",
+        passive_deletes="all",
+        order_by="InsightRevision.revision_number",
     )

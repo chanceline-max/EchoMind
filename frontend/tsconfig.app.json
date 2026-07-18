@@ -19,5 +19,5 @@
     "noUncheckedSideEffectImports": true,
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src", "tests/unit", "tests/setup.ts"]
+  "include": ["src", "tests/unit", "tests/fixtures", "tests/setup.ts"]
 }

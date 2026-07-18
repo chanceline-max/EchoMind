@@ -6,6 +6,7 @@ interface Props {
   message: MessageSummary;
   changing: boolean;
   onToggleExcluded: (message: MessageSummary) => void;
+  highlighted?: boolean;
 }
 
 function TextBlock({ label, value }: { label: string; value: string }) {
@@ -21,13 +22,14 @@ function TextBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function MessageCard({ message, changing, onToggleExcluded }: Props) {
+export function MessageCard({ message, changing, onToggleExcluded, highlighted = false }: Props) {
   return (
-    <article className={`message-card${message.excluded_from_analysis ? " is-excluded" : ""}`}>
+    <article id={`message-${message.id}`} className={`message-card${message.excluded_from_analysis ? " is-excluded" : ""}${highlighted ? " is-highlighted" : ""}`}>
       <header>
         <strong>{message.sender_display_name}</strong>
         <span>{message.timestamp ? new Date(message.timestamp).toLocaleString() : "时间未知"}</span>
         <span className="pill">{message.message_type}</span>
+        {highlighted && <span className="target-marker">证据来源</span>}
       </header>
       <div className="message-flags">
         {message.is_system_message && <span>系统消息</span>}
