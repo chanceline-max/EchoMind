@@ -2,13 +2,13 @@
 
 ## 1. 执行摘要
 
-- 审计基线提交：`ead6bf6`（阶段 10）；本文件与阶段 11 修复随同一提交交付。
+- 审计基线提交：`ead6bf6`（阶段 10）；阶段 11 完整验收后，阶段 12 仅同步许可证与发布准备状态。
 - 审计日期：2026-07-18（Asia/Shanghai）。
 - 审计环境：Windows 11 家庭中文版；Python 3.12.13；Node.js 24.14.0；npm 11.9.0；Git 2.53.0.windows.3；FastAPI 0.139.2；SQLAlchemy 2.0.51；Pydantic 2.13.4。
-- 最终结论：**PASS_WITH_LIMITATIONS**。
+- 最终结论：**PASS_WITH_LIMITATIONS**。剩余限制是同步分析、平台覆盖、远程互操作、静态加密和完整无障碍/安全审计，不再包含许可证未决。
 - 用户可达核心闭环：满足。新的空库 E2E 不预置 Insight、Confidence、Revision 或 Profile，只注入明确的离线 Mock Provider 候选。
 - 未解决 BLOCKER：0；未解决 HIGH：0。
-- OWNER_DECISION_REQUIRED：1（开源许可证）。
+- OWNER_DECISION_REQUIRED：0；Apache-2.0 与 `Copyright 2026 杨锦辰` 已由项目所有者确认。
 
 结论不是生产可用声明。Windows 本地开发者 MVP 已被实际验证；Linux、macOS、真实远程 Provider、真实敏感聊天数据治理和生产部署未被本轮证明。
 
@@ -78,7 +78,7 @@
 | MVP-A11 | Profile→Insight→Evidence→Message→SourceFile | Profile document/relations | `test_profile_insight_traces...`、Stage 11 E2E | PASS | — |
 | MVP-A12 | 无物理删/级联、raw 保留、状态传播 | RESTRICT FK/服务 | deletion constraints、propagation、route contract | PASS | — |
 | MVP-A13 | 上传/CORS/缓存/远程 opt-in 隐私 | middleware/settings/UI | Import/provider/analysis tests、源码扫描、E2E | PASS | — |
-| MVP-A14 | 全测试、静态、构建、E2E、迁移 | 工程配置 | 当前工作区 659 pytest、38 Vitest、5 Playwright、Ruff/mypy/ESLint/TS/build、迁移循环 | PASS | — |
+| MVP-A14 | 全测试、静态、构建、E2E、迁移 | 工程配置 | 阶段 12 当前工作区 663 pytest、38 Vitest、5 Playwright、Ruff/mypy/ESLint/TS/build、迁移循环 | PASS | — |
 | MVP-A15 | 无密钥/真实聊天/DB/路径/产物 | `.gitignore`/合成 samples | Git 跟踪文件与 `rg` 扫描 | PASS | — |
 
 ## 6. 完整闭环证据
@@ -206,21 +206,18 @@ OpenAPI 自动枚举 24 条 API method/path，9 条写路由。完整列表：
 - 影响：复杂辅助技术体验未证实。
 - 处理：记录到阶段 12/后续，不引入大型依赖。
 
-### AUDIT-LOW-002（未修复）
+### AUDIT-LOW-002（阶段 12 已修复）
 
 - 严重度：LOW。
 - 标题：缺少 CONTRIBUTING、SECURITY、CODE_OF_CONDUCT、CHANGELOG 和 GitHub 模板。
 - 影响：公开协作流程不完整，但不破坏本地 MVP 数据链。
-- 处理：阶段 11 不扩展社区治理文件。
+- 处理：阶段 12 已新增 CONTRIBUTING、SECURITY、CODE_OF_CONDUCT、CHANGELOG、Release 文档和 GitHub 模板。
 
-### AUDIT-OWNER-001（OWNER_DECISION_REQUIRED）
+### AUDIT-OWNER-001（阶段 12 已解决）
 
-- 严重度：OWNER_DECISION_REQUIRED。
-- 标题：仓库没有 LICENSE。
-- 证据：Git 跟踪文件扫描无 LICENSE/COPYING。
-- 影响：外部用户通常没有明确的复制、修改和分发授权；不能把仓库称为已完成法律意义上的开源发布。
-- 处理：Codex 未自动选择 MIT/Apache-2.0/GPL，也未伪造版权持有人。
-- 下一步：项目所有者选择许可证并确认版权信息。
+- 原问题：仓库没有 LICENSE，复制、修改和分发授权不明确。
+- 所有者决定：Apache License 2.0；SPDX `Apache-2.0`；`Copyright 2026 杨锦辰`。
+- 处理：根目录 `LICENSE`/`NOTICE`、后端/前端包元数据、README、贡献许可和发布材料已统一；第三方依赖仍适用各自许可证。
 
 ## 17. 已修复问题与失败过程
 
@@ -249,15 +246,15 @@ OpenAPI 自动枚举 24 条 API method/path，9 条写路由。完整列表：
 - SQLite/本地文件未做应用层静态加密；主机账号和磁盘安全仍是边界。
 - 没有物理删除 UI；证据链优先使用归档、排除和状态。
 - 仅 Windows 实测；没有生产 SLA、安全认证或合规认证。
-- 缺少许可证和社区治理文件。
+- 0.1.0 发布仍需项目所有者手动配置远程仓库、推送、创建 tag 和 Release。
 
 ## 19. 发布建议
 
 | 用途 | 建议 |
 |---|---|
 | 本地开发者 MVP 使用 | 可以；仅在理解限制并备份数据后使用 |
-| 公开发布源码 | 技术上可公开，但在 OWNER-001 解决前不得声称已授予开源权利 |
-| 接受外部贡献 | 暂缓；先确定 LICENSE、CONTRIBUTING 和版权归属 |
+| 公开发布源码 | Apache-2.0 许可和社区材料已准备；项目所有者仍需审阅并手动执行远程发布 |
+| 接受外部贡献 | 可以按 CONTRIBUTING 和 Apache-2.0 贡献许可审查；不得接收真实聊天或无权提交的材料 |
 | 处理真实敏感聊天 | 谨慎且不建议作为默认承诺；先做备份、磁盘/账号保护、远程 Provider 政策审查 |
 | 生产或多用户部署 | 不建议；未审计认证、权限、加密、运维和多租户 |
 

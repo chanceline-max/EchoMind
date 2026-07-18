@@ -1,0 +1,54 @@
+name: Feature request
+description: Propose a scoped improvement and explain its evidence and privacy impact.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: Do not include real chats, keys, databases, Profiles, or other sensitive content. Use synthetic examples.
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What user problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: limitation
+    attributes:
+      label: Current limitation
+      description: What can the current 0.1.x behavior not do?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe the smallest useful result without prescribing unnecessary architecture.
+    validations:
+      required: true
+  - type: dropdown
+    id: sensitive_data
+    attributes:
+      label: Does this involve sensitive data or new network behavior?
+      options:
+        - "No"
+        - "Yes"
+        - "Unsure"
+    validations:
+      required: true
+  - type: textarea
+    id: semantics
+    attributes:
+      label: Evidence, review, and Profile semantics
+      description: Could this change Evidence traceability, status/confidence separation, human review, or Profile snapshot behavior?
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: This request and its examples contain synthetic data only.
+          required: true
