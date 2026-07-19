@@ -131,7 +131,7 @@ def test_window_id_does_not_depend_on_content() -> None:
 
 def test_insight_fingerprint_is_conservative_and_stable() -> None:
     first = insight_fingerprint(
-        extraction_version="candidate-extraction-1.0",
+        extraction_version="candidate-extraction-1.1",
         insight_type="fact",
         category="background",
         statement="  A   Synthetic\nStatement ",
@@ -139,7 +139,7 @@ def test_insight_fingerprint_is_conservative_and_stable() -> None:
         valid_to=None,
     )
     second = insight_fingerprint(
-        extraction_version="candidate-extraction-1.0",
+        extraction_version="candidate-extraction-1.1",
         insight_type="fact",
         category="background",
         statement="A Synthetic Statement",
@@ -147,7 +147,7 @@ def test_insight_fingerprint_is_conservative_and_stable() -> None:
         valid_to=None,
     )
     case_changed = insight_fingerprint(
-        extraction_version="candidate-extraction-1.0",
+        extraction_version="candidate-extraction-1.1",
         insight_type="fact",
         category="background",
         statement="a synthetic statement",

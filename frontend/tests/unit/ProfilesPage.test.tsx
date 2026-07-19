@@ -23,7 +23,7 @@ describe("ProfilesPage", () => {
   it("shows current, stale and unavailable snapshots with text states", async () => {
     mockedFetch.mockResolvedValue({ items: [profileSummary, { ...profileSummary, id: "p2", current_source_status: "stale", stale_reason_codes: ["insight_revision_changed"] }, { ...profileSummary, id: "p3", current_source_status: "source_unavailable" }], total: 3, limit: 20, offset: 0 });
     renderPage();
-    expect(await screen.findByText("当前")).toBeInTheDocument();
+    expect(await screen.findByText("当前有效")).toBeInTheDocument();
     expect(screen.getByText("来源已变化")).toBeInTheDocument();
     expect(screen.getByText("来源不可用")).toBeInTheDocument();
   });
@@ -33,11 +33,11 @@ describe("ProfilesPage", () => {
     mockedGenerate.mockResolvedValue({ profile_snapshot_id: "profile-1", profile_version: "echo-profile-1.0", schema_version: "echo-profile-document-1.0", generated_at: "2026-07-21T00:00:00Z", source_fingerprint: "a".repeat(64), generation_fingerprint: "b".repeat(64), document_hash: "c".repeat(64), insight_count: 1, evidence_count: 1, source_status: "current", created: false, reused: true, links: { self: "/p", markdown: "/m", json: "/j" } });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     renderPage();
-    expect(await screen.findByText(/还没有 Profile/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Evidence 模式")).toHaveValue("references");
-    await userEvent.selectOptions(screen.getByLabelText("Evidence 模式"), "excerpts");
+    expect(await screen.findByText(/还没有档案快照/)).toBeInTheDocument();
+    expect(screen.getByLabelText("证据模式")).toHaveValue("references");
+    await userEvent.selectOptions(screen.getByLabelText("证据模式"), "excerpts");
     expect(screen.getByText(/敏感导出/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "生成 Profile" }));
+    await userEvent.click(screen.getByRole("button", { name: "生成认知档案" }));
     expect(confirm).toHaveBeenCalled();
     await waitFor(() => expect(mockedGenerate).toHaveBeenCalledWith(expect.objectContaining({ evidenceMode: "excerpts", includePartialEvidence: true, includeInvalidated: true, includeReasoning: true })));
     expect(await screen.findByText(/已复用相同来源/)).toBeInTheDocument();

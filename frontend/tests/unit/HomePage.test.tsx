@@ -21,7 +21,7 @@ describe("HomePage", () => {
     renderPage();
     expect(screen.getByRole("heading", { name: "EchoMind" })).toBeInTheDocument();
     expect(screen.getByText("Turn conversations into understanding.")).toBeInTheDocument();
-    expect(screen.getByText("MVP Import Workflow")).toBeInTheDocument();
+    expect(screen.getByText("MVP 导入流程")).toBeInTheDocument();
     expect(screen.getByText("正在检查后端状态…")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "导入聊天记录" })).toHaveAttribute("href", "/import");
   });

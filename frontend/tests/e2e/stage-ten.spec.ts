@@ -28,9 +28,9 @@ test("generates, reuses, stales, and explicitly exports immutable EchoProfiles",
   test.setTimeout(90_000);
   await page.goto("/profiles");
   await expect(page.getByRole("heading", { name: "EchoProfile" })).toBeVisible();
-  await page.getByRole("button", { name: "生成 Profile" }).click();
+  await page.getByRole("button", { name: "生成认知档案" }).click();
   await expect(page.getByRole("status")).toContainText("新快照已生成");
-  await page.getByRole("button", { name: "生成 Profile" }).click();
+  await page.getByRole("button", { name: "生成认知档案" }).click();
   await expect(page.getByRole("status")).toContainText("已复用相同来源与配置的快照");
   const profileHref = await page.getByRole("link", { name: /查看详情/ }).getAttribute("href");
   if (!profileHref) throw new Error("generated Profile link is missing");
@@ -60,7 +60,7 @@ test("generates, reuses, stales, and explicitly exports immutable EchoProfiles",
   await page.goto(`/insights/${backgroundSource.insightId}`);
   await page.getByRole("button", { name: "编辑候选" }).click();
   await page.getByLabel("陈述").fill("Synthetic Profile statement updated after snapshot.");
-  await page.getByRole("button", { name: /保存 revision/ }).click();
+  await page.getByRole("button", { name: /保存修订/ }).click();
   await expect(page.getByText("Synthetic Profile statement updated after snapshot.")).toBeVisible();
   await page.goto(profileHref);
   await expect(page.getByText("来源已变化")).toBeVisible();
@@ -68,10 +68,10 @@ test("generates, reuses, stales, and explicitly exports immutable EchoProfiles",
   await expect(page.getByText("Synthetic Profile statement updated after snapshot.")).toHaveCount(0);
 
   await page.goto("/profiles");
-  await page.getByLabel("Evidence 模式").selectOption("excerpts");
+  await page.getByLabel("证据模式").selectOption("excerpts");
   await expect(page.getByText(/敏感导出/)).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "生成 Profile" }).click();
+  await page.getByRole("button", { name: "生成认知档案" }).click();
   await expect(page.getByRole("status")).toContainText("新快照已生成");
   const excerptHref = await page.getByRole("link", { name: /查看详情/ }).getAttribute("href");
   if (!excerptHref) throw new Error("excerpt Profile link is missing");
@@ -81,7 +81,7 @@ test("generates, reuses, stales, and explicitly exports immutable EchoProfiles",
   await targetEvidence.getByRole("link", { name: /查看本地原消息/ }).click();
   await page.locator(".message-card.is-highlighted").getByRole("button", { name: "排除分析" }).click();
   await page.goto("/profiles");
-  await page.getByRole("button", { name: "生成 Profile" }).click();
+  await page.getByRole("button", { name: "生成认知档案" }).click();
   await page.getByRole("link", { name: /查看详情/ }).click();
   await expect(page.getByRole("heading", { name: "证据已失效" })).toBeVisible();
   await expect(page.getByText(/不能作为当前有效结论使用/)).toBeVisible();

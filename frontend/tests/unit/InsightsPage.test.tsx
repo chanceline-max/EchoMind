@@ -28,6 +28,9 @@ describe("InsightsPage", () => {
     expect(await screen.findByText("Synthetic candidate")).toBeInTheDocument();
     expect(screen.getByText("62%")).toBeInTheDocument();
     expect(screen.queryByText("88%")).not.toBeInTheDocument();
+    expect(screen.getAllByText("待审核").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("偏好").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("有效").length).toBeGreaterThan(1);
     await userEvent.selectOptions(screen.getByLabelText("状态"), "proposed");
     await waitFor(() => expect(mockedFetch).toHaveBeenLastCalledWith(expect.objectContaining({ status: "proposed", offset: 0 })));
     await userEvent.selectOptions(screen.getByLabelText("排序"), "confidence_asc");
@@ -37,7 +40,7 @@ describe("InsightsPage", () => {
   it("shows an empty state", async () => {
     mockedFetch.mockResolvedValue(page([]));
     renderPage();
-    expect(await screen.findByText("没有符合当前条件的 Insight。")).toBeInTheDocument();
+    expect(await screen.findByText("没有符合当前条件的洞察。")).toBeInTheDocument();
   });
 
   it("shows API and runtime validation failures without real network access", async () => {

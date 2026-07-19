@@ -308,7 +308,7 @@ Endpoint 默认必须使用 HTTPS；HTTP 只在 `LLM_ALLOW_INSECURE_LOCAL_HTTP=t
 
 ## 候选 Insight 抽取（阶段 7）
 
-阶段 7 建立后端内部同步入口 `echomind.extraction.extract_candidates`；阶段 11 在不改变抽取规则的前提下新增受限的 `GET /api/v1/analysis/capabilities`、`POST /api/v1/analysis` 和 `/analysis` 页面。`ExtractionRequest` 必须显式给出 1–100 个会话 UUID；会话按去重后的请求顺序处理，可选 `start_at/end_at` 必须带时区。默认 Provider 为 `mock`，`remote_consent=false`，抽取版本固定为 `candidate-extraction-1.0`。窗口默认最多 40 条/12000 字符，单条最多发送 4000 字符，最多重叠 4 条，每窗最多 10 个候选；重叠必须小于窗口消息上限。`stop_on_window_error=true` 时当前窗失败即停止后续窗口，但已成功提交的窗口不会回滚；设为 false 时记录安全错误并继续。
+阶段 7 建立后端内部同步入口 `echomind.extraction.extract_candidates`；阶段 11 在不改变抽取规则的前提下新增受限的 `GET /api/v1/analysis/capabilities`、`POST /api/v1/analysis` 和 `/analysis` 页面。`ExtractionRequest` 必须显式给出 1–100 个会话 UUID；会话按去重后的请求顺序处理，可选 `start_at/end_at` 必须带时区。默认 Provider 为 `mock`，`remote_consent=false`，当前抽取版本为 `candidate-extraction-1.1`。该版本保持 1.0 的证据规则，并要求模型用简体中文生成标题、陈述、推理依据和其他解释；JSON 字段、受控枚举（包括分类）和局部 ID 仍为英文。窗口默认最多 40 条/12000 字符，单条最多发送 4000 字符，最多重叠 4 条，每窗最多 10 个候选；重叠必须小于窗口消息上限。`stop_on_window_error=true` 时当前窗失败即停止后续窗口，但已成功提交的窗口不会回滚；设为 false 时记录安全错误并继续。
 
 只有未归档且恰好有一个 Profile Owner 的显式所选会话可分析。读取顺序是请求中的会话顺序，再按 `Message.source_order`、`Message.id`；只选择时间范围内、`excluded_from_analysis=false`、未归档、未删除且时间有效的消息。上下文绝不读取 `raw_content`，也不发送数据库/源消息 ID、参与者姓名、文件名、路径、metadata 或 cleaning operations。每窗只含一个会话，消息使用 `m001...` 局部别名，参与者使用 `PROFILE_OWNER`、`OTHER_n`；回复目标仅在同窗时使用局部别名。
 
@@ -318,7 +318,7 @@ Evidence excerpt 由本地完整 `normalized_content` 确定性生成，最多 5
 
 Provider 调用发生在数据库事务外；每窗合法候选在一个短事务中整体提交或回滚，每窗最多一次成功提交。`ExtractionReport` 只返回 ID、计数、状态和受控错误，不含正文、excerpt、Prompt 或模型响应。远程 Provider 经服务端开关与逐请求 consent 后会收到当前窗口的 `normalized_content`；EchoMind 不缓存或持久化完整 Prompt/Provider 输出，第三方保留政策仍需用户自行核对。
 
-分析页面只允许选择会话、显式远程 consent 和启动同步分析，不允许输入 Key、endpoint、Prompt、模型参数或 confidence 权重。生产默认 Mock 返回空候选；测试可通过应用工厂注入固定的合成 Mock 输出。若 Extraction 成功而个别 Confidence 评分失败，已创建 Insight 保留，响应以安全错误和失败计数明确标记部分失败。所有分析响应均为 `no-store`。
+分析页面只允许选择会话、显式远程 consent 和启动同步分析，不允许输入 Key、endpoint、Prompt、模型参数或 confidence 权重。生产默认 Mock 返回空候选；测试可通过应用工厂注入固定的合成 Mock 输出。若 Extraction 成功而个别 Confidence 评分失败，已创建 Insight 保留，响应以安全错误和失败计数明确标记部分失败。所有分析响应均为 `no-store`。历史 Insight 保留生成时语言和抽取版本，不会因 1.1 上线被自动翻译或覆盖。
 
 ## 可解释置信度（阶段 8）
 

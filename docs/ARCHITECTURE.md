@@ -121,11 +121,12 @@ eligible messages → deterministic chunks → overlapping context windows
 - 每个会话必须未归档且恰好有一个 Profile Owner。只选择时间范围内 `excluded_from_analysis=false`、未归档、未删除且时间有效的 Message；不会读取 SourceFile 原文、`raw_content`、路径、metadata 或 cleaning operations。
 - 每窗只含一个会话，默认 40 条/12000 字符，单条上下文最多 4000 字符并在限额内追加 `[TRUNCATED]`，相邻窗口最多重叠 4 条。窗口 ID 是抽取版本、会话数据库 ID、有序消息数据库 ID 和窗口参数版本的 SHA-256，不含正文。
 - Provider 只接收 `m001...` 消息别名、`c001` 会话别名、`PROFILE_OWNER/OTHER_n` 匿名角色、时间、类型、截断后的 `normalized_content` 和同窗回复别名。数据库/源 ID、参与者姓名、文件名和路径不进入 payload。
-- Prompt 固定为 `candidate-extraction-1.0`；禁止诊断、MBTI、单消息 pattern、窗外引用和 confirmed 输出。Provider 使用独立 Candidate Schema，最多返回请求允许的候选数。
+- 当前 Prompt 与抽取版本为 `candidate-extraction-1.1`；保持 1.0 的诊断、MBTI、单消息 pattern、窗外引用和 confirmed 输出禁令，并要求所有面向用户的自由文本使用简体中文。JSON 字段、受控枚举、局部 ID 和 null 语义不翻译。Provider 使用独立 Candidate Schema，最多返回请求允许的候选数。
 - 候选先执行七类最低机械规则；无效候选单独拒绝，合法候选继续。模型只提供局部 Evidence 引用；本地从完整 `normalized_content` 生成最多 500 字符 excerpt，不使用模型 excerpt。
 - Insight 指纹由抽取版本、类型、受控类别、保守空白规范化 statement 和有效期生成；Evidence 指纹由消息 ID、Evidence 类型、excerpt SHA-256 和指纹版本生成。第一版不做 embedding、语义相似度或跨窗口自动合并。
 - Provider 调用前关闭读取 Session，不在网络期间持有数据库事务。每窗合法候选在一个短事务内整体提交或回滚；前序成功窗口保留。`stop_on_window_error` 决定失败后停止或继续，重复运行通过唯一指纹恢复。
 - 新候选固定 `proposed/valid`，`confidence=0.0`、`confidence_version=unscored` 表示阶段 8 尚未评分；`model_confidence` 单独保存。复用既有 Insight 时不覆盖 title/statement/status，可补充未关联 Evidence。
+- 1.0 历史 Insight 保留原始语言、抽取版本、证据链和修订历史；前端只翻译受控枚举的显示标签，不自动翻译或覆盖模型自由文本。
 - `ExtractionReport` 仅含 ID、计数、状态和受控错误，不含正文、excerpt、Prompt、Provider 响应或路径。阶段 11 的薄分析层读取其中的去重 `insight_ids` 并调用既有 Confidence 服务；仍没有 ExtractionRun、后台任务或跨窗口语义合并。
 
 ### 4.3 置信度重算

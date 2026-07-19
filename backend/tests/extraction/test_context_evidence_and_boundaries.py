@@ -259,8 +259,21 @@ def test_prompt_contains_required_safety_constraints() -> None:
         "mbti",
         "outside the supplied window",
         "only json",
+        "simplified chinese",
+        "user-facing free-text",
     ]:
         assert required in normalized
+
+    for controlled_value in [
+        "fact",
+        "preference",
+        "pattern",
+        "inference",
+        "hypothesis",
+        "contradiction",
+        "change",
+    ]:
+        assert controlled_value in normalized
 
 
 def test_default_mock_pipeline_returns_empty_candidates_without_network(

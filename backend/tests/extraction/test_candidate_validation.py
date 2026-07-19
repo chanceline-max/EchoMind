@@ -17,7 +17,7 @@ def window() -> ContextWindow:
     return ContextWindow.from_messages(
         conversation_id="conversation-db-id",
         messages=_messages(4),
-        extraction_version="candidate-extraction-1.0",
+        extraction_version="candidate-extraction-1.1",
     )
 
 

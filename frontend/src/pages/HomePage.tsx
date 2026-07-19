@@ -6,7 +6,7 @@ export function HomePage() {
   return (
     <main className="page-shell home-page">
       <section className="foundation-card" aria-labelledby="page-title">
-        <p className="phase-label">MVP Import Workflow</p>
+        <p className="phase-label">MVP 导入流程</p>
         <h1 id="page-title">EchoMind</h1>
         <p className="tagline">Turn conversations into understanding.</p>
         <div className="home-actions">

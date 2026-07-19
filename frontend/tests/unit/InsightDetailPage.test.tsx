@@ -60,10 +60,10 @@ describe("InsightDetailPage", () => {
     renderPage();
     expect(await screen.findByText("Full synthetic statement.")).toBeInTheDocument();
     expect(screen.getByText(/Evidence count and direct/)).toBeInTheDocument();
-    expect(screen.getByText("Profile Owner")).toBeInTheDocument();
-    expect(screen.getByText(/source_message_excluded/)).toBeInTheDocument();
+    expect(screen.getByText("本人")).toBeInTheDocument();
+    expect(screen.getByText(/原消息已排除分析/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /查看原消息/ })).toHaveAttribute("href", "/conversations/conversation-1?message=message-1");
-    expect(await screen.findByText(/r1 · edited/)).toBeInTheDocument();
+    expect(await screen.findByText(/第 1 版 · 已编辑/)).toBeInTheDocument();
     expect(document.querySelector("[dangerouslySetInnerHTML]")).toBeNull();
   });
 
@@ -72,7 +72,7 @@ describe("InsightDetailPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "编辑候选" }));
     await userEvent.clear(screen.getByLabelText("标题")); await userEvent.type(screen.getByLabelText("标题"), "Reviewed title");
-    await userEvent.click(screen.getByRole("button", { name: "保存 revision 1" }));
+    await userEvent.click(screen.getByRole("button", { name: "保存修订 1" }));
     await waitFor(() => expect(mockedEdit).toHaveBeenCalledWith("insight-1", expect.objectContaining({ expected_revision: 0, title: "Reviewed title" })));
   });
 
@@ -80,7 +80,7 @@ describe("InsightDetailPage", () => {
     mockedDetail.mockResolvedValue({ ...detail, confidence: 0.1 }); mockedRevisions.mockResolvedValue(revisionPage);
     mockedConfirm.mockRejectedValue(new APIError(409, { error_code: "insight_revision_conflict", message: "Conflict" }));
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "确认 Insight" }));
+    await userEvent.click(await screen.findByRole("button", { name: "确认洞察" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("已在其他页面被修改");
     expect(mockedConfirm).toHaveBeenCalledWith("insight-1", { expected_revision: 0 });
   });
@@ -91,7 +91,7 @@ describe("InsightDetailPage", () => {
     vi.mocked(rejectInsight).mockResolvedValue(mutationResult);
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "驳回" }));
-    expect(window.prompt).toHaveBeenCalledWith(expect.stringContaining("不会删除 Evidence"));
+    expect(window.prompt).toHaveBeenCalledWith(expect.stringContaining("不会删除证据"));
     expect(vi.mocked(rejectInsight)).toHaveBeenCalledWith("insight-1", expect.objectContaining({ expected_revision: 0 }));
     expect(vi.mocked(restoreInsight)).not.toHaveBeenCalled();
     expect(vi.mocked(supersedeInsight)).not.toHaveBeenCalled();

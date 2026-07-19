@@ -116,7 +116,7 @@ async def test_capabilities_are_safe_no_store_and_default_mock_available(tmp_pat
             "provider_available": True,
             "remote_provider": False,
             "remote_consent_required": False,
-            "extraction_version": "candidate-extraction-1.0",
+            "extraction_version": "candidate-extraction-1.1",
             "confidence_version": "confidence-1.0",
             "max_conversations_per_request": 100,
         }

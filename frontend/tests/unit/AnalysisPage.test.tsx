@@ -16,7 +16,7 @@ const mockedAnalysis = vi.mocked(startAnalysis);
 const mockedConversations = vi.mocked(fetchConversations);
 const localCapabilities = {
   configured_provider: "mock", provider_available: true, remote_provider: false,
-  remote_consent_required: false, extraction_version: "candidate-extraction-1.0",
+  remote_consent_required: false, extraction_version: "candidate-extraction-1.1",
   confidence_version: "confidence-1.0", max_conversations_per_request: 100,
 };
 const conversationPage = {
@@ -51,8 +51,8 @@ describe("AnalysisPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "开始分析" }));
     await waitFor(() => expect(mockedAnalysis.mock.calls[0]?.[0]).toEqual({ conversationIds: ["conversation-1"], remoteConsent: false }));
     expect(await screen.findByRole("heading", { name: "分析完成" })).toBeInTheDocument();
-    expect(document.querySelector(".analysis-metrics")).toHaveTextContent("1 新 Insight");
-    expect(screen.getByRole("link", { name: "查看生成的 Insights" })).toHaveAttribute("href", "/insights");
+    expect(document.querySelector(".analysis-metrics")).toHaveTextContent("1 新洞察");
+    expect(screen.getByRole("link", { name: "查看生成的洞察" })).toHaveAttribute("href", "/insights");
   });
 
   it("shows the exact synchronous processing state without fake progress", async () => {
@@ -81,11 +81,11 @@ describe("AnalysisPage", () => {
     mockedAnalysis.mockResolvedValue({ ...response, provider_name: "openai_compatible", insight_ids: [], insights_created: 0, candidates_received: 0, candidates_accepted: 0, confidence_scored_count: 0 });
     renderPage();
     await userEvent.click(await screen.findByRole("checkbox", { name: /Synthetic conversation/ }));
-    expect(screen.getByText(/会发送当前所选会话窗口的 normalized_content/)).toBeInTheDocument();
+    expect(screen.getByText(/规范化内容（normalized_content）/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "开始分析" })).toBeDisabled();
     await userEvent.click(screen.getByRole("checkbox", { name: /我同意/ }));
     expect(screen.getByRole("button", { name: "开始分析" })).toBeEnabled();
     await userEvent.click(screen.getByRole("button", { name: "开始分析" }));
-    expect(await screen.findByText("本次没有生成候选 Insight。")).toBeInTheDocument();
+    expect(await screen.findByText("本次没有生成候选洞察。")).toBeInTheDocument();
   });
 });

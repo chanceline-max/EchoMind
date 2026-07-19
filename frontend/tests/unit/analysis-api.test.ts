@@ -8,7 +8,7 @@ const capabilities = {
   provider_available: true,
   remote_provider: false,
   remote_consent_required: false,
-  extraction_version: "candidate-extraction-1.0",
+  extraction_version: "candidate-extraction-1.1",
   confidence_version: "confidence-1.0",
   max_conversations_per_request: 100,
 };

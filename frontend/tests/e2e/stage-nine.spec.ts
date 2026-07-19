@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("reviews an Insight, preserves history, and propagates Evidence validity", async ({ page }) => {
   await page.goto("/insights");
-  await expect(page.getByRole("heading", { name: "Insight 审核台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "洞察审核台" })).toBeVisible();
   await page.getByLabel("状态").selectOption("proposed");
   await expect(page.getByText("共 2 条")).toBeVisible();
 
@@ -16,18 +16,18 @@ test("reviews an Insight, preserves history, and propagates Evidence validity", 
 
   await expect(page.getByRole("heading", { name: /Synthetic review candidate/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "证据链" })).toBeVisible();
-  await expect(page.getByText("Profile Owner").first()).toBeVisible();
+  await expect(page.getByText("本人").first()).toBeVisible();
 
   await page.getByRole("button", { name: "编辑候选" }).click();
   await page.getByLabel("标题").fill("E2E reviewed synthetic title");
-  await page.getByRole("button", { name: "保存 revision 1" }).click();
+  await page.getByRole("button", { name: "保存修订 1" }).click();
   await expect(page.getByRole("heading", { name: "E2E reviewed synthetic title" })).toBeVisible();
-  await expect(page.getByText(/r1 · edited/)).toBeVisible();
+  await expect(page.getByText(/第 1 版 · 已编辑/)).toBeVisible();
 
-  await page.getByRole("button", { name: "确认 Insight" }).click();
-  await expect(page.locator(".status-confirmed")).toHaveText("confirmed");
+  await page.getByRole("button", { name: "确认洞察" }).click();
+  await expect(page.locator(".status-confirmed")).toHaveText("已确认");
   await page.reload();
-  await expect(page.locator(".status-confirmed")).toHaveText("confirmed");
+  await expect(page.locator(".status-confirmed")).toHaveText("已确认");
 
   const insightId = currentHref.split("/").at(-1);
   if (!insightId) throw new Error("synthetic Insight ID is missing");
@@ -42,16 +42,16 @@ test("reviews an Insight, preserves history, and propagates Evidence validity", 
   expect(externalStatus).toBe(200);
   await page.getByRole("button", { name: "编辑候选" }).click();
   await page.getByLabel("标题").fill("Stale edit must not win");
-  await page.getByRole("button", { name: "保存 revision 3" }).click();
+  await page.getByRole("button", { name: "保存修订 3" }).click();
   await expect(page.getByRole("alert")).toContainText("已在其他页面被修改");
   await page.getByRole("button", { name: "重新加载" }).click();
   await expect(page.getByRole("heading", { name: "Concurrent synthetic edit" })).toBeVisible();
 
   page.once("dialog", (dialog) => dialog.accept("Synthetic E2E rejection reason."));
   await page.getByRole("button", { name: "驳回" }).click();
-  await expect(page.locator(".status-rejected")).toHaveText("rejected");
+  await expect(page.locator(".status-rejected")).toHaveText("已驳回");
   await page.getByRole("button", { name: "恢复为 proposed" }).click();
-  await expect(page.locator(".status-proposed")).toHaveText("proposed");
+  await expect(page.locator(".status-proposed")).toHaveText("待审核");
 
   await page.getByRole("link", { name: /查看原消息/ }).first().click();
   await expect(page.getByText("证据来源")).toBeVisible();
@@ -71,7 +71,7 @@ test("reviews an Insight, preserves history, and propagates Evidence validity", 
   await page.getByRole("button", { name: "用其他 Insight 替代" }).click();
   await page.getByLabel("替代 Insight ID").fill(replacementId);
   await page.getByRole("button", { name: "确认替代" }).click();
-  await expect(page.locator(".status-superseded")).toHaveText("superseded");
-  await expect(page.getByText(/· superseded/)).toBeVisible();
+  await expect(page.locator(".status-superseded")).toHaveText("已替代");
+  await expect(page.getByText(/· 已替代/)).toBeVisible();
   await expect(page.locator(".revision-list li")).toHaveCount(8);
 });

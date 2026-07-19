@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-DEFAULT_EXTRACTION_VERSION: Final[Literal["candidate-extraction-1.0"]] = "candidate-extraction-1.0"
+DEFAULT_EXTRACTION_VERSION: Final[Literal["candidate-extraction-1.1"]] = "candidate-extraction-1.1"
 WINDOW_PARAMETERS_VERSION = "window-1.0"
 
 
@@ -24,7 +24,7 @@ class ExtractionRequest(BaseModel):
     provider_name: Literal["mock", "openai_compatible", "local"] = "mock"
     model_name: Annotated[str, Field(min_length=1, max_length=256)] = "mock-model"
     remote_consent: bool = False
-    extraction_version: Literal["candidate-extraction-1.0"] = DEFAULT_EXTRACTION_VERSION
+    extraction_version: Literal["candidate-extraction-1.1"] = DEFAULT_EXTRACTION_VERSION
     max_window_messages: Annotated[int, Field(ge=2, le=200)] = 40
     max_window_characters: Annotated[int, Field(ge=64, le=100_000)] = 12_000
     max_single_message_characters: Annotated[int, Field(ge=32, le=20_000)] = 4_000
