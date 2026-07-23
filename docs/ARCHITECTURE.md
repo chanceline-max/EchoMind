@@ -152,6 +152,7 @@ explicit Insight IDs + as_of → content-free database snapshot
 - PATCH/confirm/reject/restore/supersede 先比较 `expected_revision`，再验证状态；条件 UPDATE 只允许一个并发写成功。成功操作与一条 append-only `InsightRevision` 在同一事务提交，409 不修改 Insight 或历史。
 - 普通 PATCH 不能修改 status、confidence、Evidence 或抽取来源。title/statement/category/review_note 不重算；insight_type/有效期、restore 和活动 Insight 的 Evidence 变化调用 caller-owned Confidence 事务入口。
 - Message 的最终排除状态决定 `source_message_excluded` 是否存在。只有全部 Evidence 失效原因清空时才恢复 valid；活动 Insight 重算 confidence，rejected/superseded 只更新 evidence_state。传播失败整体回滚。
+- 列表的 `review_bucket=batch_eligible|manual` 使用同一后端规则分层：只有 proposed、valid、confidence 严格大于 0.5 且类型为 fact/preference/pattern/change 才可批量确认。`POST /insights/batch-confirm` 接受最多 50 个显式 Insight ID 和各自 expected revision，在一个短事务内重新验证全部资格并为每条追加 confirmed Revision；任何缺失、过期或不合格条目使整批回滚。该入口只能由用户显式触发，不由抽取或评分流程自动调用。
 
 ### 4.4 Profile 生成
 

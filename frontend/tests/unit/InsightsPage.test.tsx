@@ -4,13 +4,17 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchInsights } from "../../src/api/insights";
+import { batchConfirmInsights, fetchInsights } from "../../src/api/insights";
 import { InsightsPage } from "../../src/pages/InsightsPage";
 import type { InsightPage, InsightSummary } from "../../src/types/insights";
 import { insightSummary } from "../fixtures/insights";
 
-vi.mock("../../src/api/insights", () => ({ fetchInsights: vi.fn() }));
+vi.mock("../../src/api/insights", () => ({
+  batchConfirmInsights: vi.fn(),
+  fetchInsights: vi.fn(),
+}));
 const mockedFetch = vi.mocked(fetchInsights);
+const mockedBatchConfirm = vi.mocked(batchConfirmInsights);
 
 const page = (items: InsightSummary[] = [insightSummary]): InsightPage => ({ items, total: items.length, limit: 20, offset: 0 });
 
@@ -23,7 +27,9 @@ describe("InsightsPage", () => {
   afterEach(() => vi.resetAllMocks());
 
   it("renders final and model confidence separately and applies filters", async () => {
-    mockedFetch.mockResolvedValue(page());
+    mockedFetch.mockImplementation((filters) => Promise.resolve(
+      filters.reviewBucket === "batch_eligible" ? page([]) : page(),
+    ));
     renderPage();
     expect(await screen.findByText("Synthetic candidate")).toBeInTheDocument();
     expect(screen.getByText("62%")).toBeInTheDocument();
@@ -46,6 +52,23 @@ describe("InsightsPage", () => {
   it("shows API and runtime validation failures without real network access", async () => {
     mockedFetch.mockRejectedValue(new Error("invalid response"));
     renderPage();
-    expect(await screen.findByRole("alert")).toHaveTextContent("服务器返回格式无效");
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts.some((item) => item.textContent?.includes("服务器返回格式无效"))).toBe(true);
+  });
+
+  it("confirms one eligible page in a single explicit batch action", async () => {
+    mockedFetch.mockImplementation((filters) => Promise.resolve(
+      filters.reviewBucket === "batch_eligible" ? page() : page([]),
+    ));
+    mockedBatchConfirm.mockResolvedValue({ confirmed_ids: ["insight-1"], confirmed_count: 1 });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "批量确认当前 1 条" }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("当前 1 条"));
+    expect(mockedBatchConfirm).toHaveBeenCalledWith([
+      { insight_id: "insight-1", expected_revision: 0 },
+    ]);
+    expect(await screen.findByRole("status")).toHaveTextContent("已批量确认 1 条洞察");
   });
 });

@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const apiBaseUrl = process.env.E2E_API_BASE_URL ?? "http://127.0.0.1:8000";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -36,7 +38,7 @@ test("generates, reuses, stales, and explicitly exports immutable EchoProfiles",
   if (!profileHref) throw new Error("generated Profile link is missing");
   await page.goto(profileHref);
 
-  await expect(page.getByText("confirmed-only-1.0")).toBeVisible();
+  await expect(page.getByText("仅纳入已确认洞察")).toBeVisible();
   await expect(page.getByRole("heading", { name: "基础背景" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "稳定偏好" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "矛盾信息" })).toBeVisible();
@@ -51,11 +53,11 @@ test("generates, reuses, stales, and explicitly exports immutable EchoProfiles",
   await page.getByRole("button", { name: "导出 JSON" }).click();
   expect((await jsonDownload).suggestedFilename()).toContain("echoprofile");
 
-  const source: unknown = await page.evaluate(async (profileHref) => {
-    const response = await fetch(`http://127.0.0.1:8000/api/v1${profileHref}`);
+  const source: unknown = await page.evaluate(async ({ profileHref, apiBaseUrl }) => {
+    const response = await fetch(`${apiBaseUrl}/api/v1${profileHref}`);
     const value: unknown = await response.json();
     return value;
-  }, profileHref);
+  }, { profileHref, apiBaseUrl });
   const backgroundSource = findBackgroundSource(source);
   await page.goto(`/insights/${backgroundSource.insightId}`);
   await page.getByRole("button", { name: "编辑候选" }).click();

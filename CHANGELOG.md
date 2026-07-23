@@ -8,6 +8,7 @@
 
 - Insight、Evidence、审核修订和 EchoProfile 的受控状态在前端统一显示为简体中文，内部 API/数据库枚举保持不变。
 - 候选抽取升级为 `candidate-extraction-1.1`，要求面向用户的模型自由文本使用简体中文；历史 1.0 Insight 不自动翻译或覆盖。
+- 洞察审核增加显式高置信批量确认：仅限 `>50%`、证据有效的 fact/preference/pattern/change；风险类型仍逐条审核，后端整批重验并保留逐条修订历史。
 
 ## [0.1.0] - 2026-07-18
 

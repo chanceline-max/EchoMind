@@ -13,6 +13,8 @@ from echomind.api.dependencies import (
 from echomind.api.errors import ApiError, ErrorResponse
 from echomind.models.enums import EvidenceState, InsightStatus, InsightType
 from echomind.schemas.insight_review import (
+    BatchConfirmRequest,
+    BatchConfirmResponse,
     InsightDetail,
     InsightEditRequest,
     InsightPage,
@@ -53,6 +55,7 @@ def read_insights(
     conversation_id: str | None = None,
     source_file_id: str | None = None,
     has_contradicting_evidence: bool | None = None,
+    review_bucket: Literal["batch_eligible", "manual"] | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     sort: SortOption = "updated_at_desc",
@@ -75,10 +78,27 @@ def read_insights(
         conversation_id=conversation_id,
         source_file_id=source_file_id,
         has_contradicting_evidence=has_contradicting_evidence,
+        review_bucket=review_bucket,
         limit=limit,
         offset=offset,
         sort=sort,
     )
+    set_private_response_headers(response)
+    return result
+
+
+@router.post(
+    "/batch-confirm",
+    response_model=BatchConfirmResponse,
+    responses=WRITE_RESPONSES,
+    dependencies=[Depends(require_allowed_origin)],
+)
+def batch_confirm_insights(
+    payload: BatchConfirmRequest,
+    response: Response,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> BatchConfirmResponse:
+    result = insight_review_service.batch_confirm_insights(session, payload)
     set_private_response_headers(response)
     return result
 

@@ -1,6 +1,8 @@
 import { apiJson, isRecord } from "./client";
 import { APIError } from "../types/api";
 import type {
+  BatchConfirmItem,
+  BatchConfirmResponse,
   InsightDetail,
   InsightFilters,
   InsightPage,
@@ -97,6 +99,7 @@ export async function fetchInsights(filters: InsightFilters): Promise<InsightPag
     ["evidence_state", filters.evidenceState],
     ["min_confidence", filters.minConfidence],
     ["max_confidence", filters.maxConfidence],
+    ["review_bucket", filters.reviewBucket],
   ];
   optional.forEach(([key, value]) => value && query.set(key, value));
   const value = await apiJson(`/api/v1/insights?${query}`);
@@ -136,6 +139,29 @@ export const editInsight = (id: string, body: Record<string, unknown>) =>
   reviewMutation(`/api/v1/insights/${encodeURIComponent(id)}`, "PATCH", body);
 export const confirmInsight = (id: string, body: Record<string, unknown>) =>
   reviewMutation(`/api/v1/insights/${encodeURIComponent(id)}/confirm`, "POST", body);
+export async function batchConfirmInsights(
+  items: BatchConfirmItem[],
+): Promise<BatchConfirmResponse> {
+  const value = await apiJson("/api/v1/insights/batch-confirm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.confirmed_ids) ||
+    !value.confirmed_ids.every((item) => typeof item === "string") ||
+    typeof value.confirmed_count !== "number" ||
+    !Number.isInteger(value.confirmed_count) ||
+    value.confirmed_count < 1 ||
+    value.confirmed_count > 50 ||
+    value.confirmed_count !== value.confirmed_ids.length ||
+    new Set(value.confirmed_ids).size !== value.confirmed_ids.length
+  ) {
+    throw invalid();
+  }
+  return value as unknown as BatchConfirmResponse;
+}
 export const rejectInsight = (id: string, body: Record<string, unknown>) =>
   reviewMutation(`/api/v1/insights/${encodeURIComponent(id)}/reject`, "POST", body);
 export const restoreInsight = (id: string, body: Record<string, unknown>) =>

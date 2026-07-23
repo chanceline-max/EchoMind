@@ -21,6 +21,7 @@ def query(db_session: Session, **updates: object) -> InsightPage:
         "conversation_id": None,
         "source_file_id": None,
         "has_contradicting_evidence": None,
+        "review_bucket": None,
         "limit": 50,
         "offset": 0,
         "sort": "updated_at_desc",
@@ -67,3 +68,23 @@ def test_every_list_filter_combines_without_duplicate_insights(db_session: Sessi
     assert len(page.items) == 1
     assert page.items[0].id == second.id
     assert page.items[0].evidence_count == 2
+
+
+def test_review_buckets_use_strict_threshold_type_and_evidence_rules(
+    db_session: Session,
+) -> None:
+    graph = create_review_graph(db_session)
+    first, second = graph.insights
+    first.confidence = 0.5
+    second.confidence = 0.8
+    db_session.commit()
+
+    eligible = query(db_session, review_bucket="batch_eligible")
+    manual = query(db_session, review_bucket="manual")
+    assert [item.id for item in eligible.items] == [second.id]
+    assert [item.id for item in manual.items] == [first.id]
+
+    second.insight_type = InsightType.INFERENCE
+    db_session.commit()
+    assert query(db_session, review_bucket="batch_eligible").total == 0
+    assert query(db_session, review_bucket="manual").total == 2

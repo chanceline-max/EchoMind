@@ -1,8 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+const apiBaseUrl = process.env.E2E_API_BASE_URL ?? "http://127.0.0.1:8000";
+
 test("reviews an Insight, preserves history, and propagates Evidence validity", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.goto("/insights");
   await expect(page.getByRole("heading", { name: "洞察审核台" })).toBeVisible();
+  await page.getByLabel("审核队列").selectOption("");
   await page.getByLabel("状态").selectOption("proposed");
   await expect(page.getByText("共 2 条")).toBeVisible();
 
@@ -31,14 +35,14 @@ test("reviews an Insight, preserves history, and propagates Evidence validity", 
 
   const insightId = currentHref.split("/").at(-1);
   if (!insightId) throw new Error("synthetic Insight ID is missing");
-  const externalStatus = await page.evaluate(async ({ insightId }) => {
-    const response = await fetch(`http://127.0.0.1:8000/api/v1/insights/${insightId}`, {
+  const externalStatus = await page.evaluate(async ({ insightId, apiBaseUrl }) => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/insights/${insightId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ expected_revision: 2, title: "Concurrent synthetic edit" }),
     });
     return response.status;
-  }, { insightId });
+  }, { insightId, apiBaseUrl });
   expect(externalStatus).toBe(200);
   await page.getByRole("button", { name: "编辑候选" }).click();
   await page.getByLabel("标题").fill("Stale edit must not win");
@@ -50,7 +54,7 @@ test("reviews an Insight, preserves history, and propagates Evidence validity", 
   page.once("dialog", (dialog) => dialog.accept("Synthetic E2E rejection reason."));
   await page.getByRole("button", { name: "驳回" }).click();
   await expect(page.locator(".status-rejected")).toHaveText("已驳回");
-  await page.getByRole("button", { name: "恢复为 proposed" }).click();
+  await page.getByRole("button", { name: "恢复为待审核" }).click();
   await expect(page.locator(".status-proposed")).toHaveText("待审核");
 
   await page.getByRole("link", { name: /查看原消息/ }).first().click();
@@ -68,8 +72,8 @@ test("reviews an Insight, preserves history, and propagates Evidence validity", 
   await expect(page.locator(".evidence-card.is-invalid")).toHaveCount(0);
   await expect(page.locator(".evidence-seal")).toHaveClass(/seal-valid/);
 
-  await page.getByRole("button", { name: "用其他 Insight 替代" }).click();
-  await page.getByLabel("替代 Insight ID").fill(replacementId);
+  await page.getByRole("button", { name: "用其他洞察替代" }).click();
+  await page.getByLabel("替代洞察 ID").fill(replacementId);
   await page.getByRole("button", { name: "确认替代" }).click();
   await expect(page.locator(".status-superseded")).toHaveText("已替代");
   await expect(page.getByText(/· 已替代/)).toBeVisible();

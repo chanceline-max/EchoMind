@@ -116,6 +116,35 @@ class ReviewActionRequest(ReviewSchema):
     note: Trimmed | None = Field(default=None, max_length=2_000)
 
 
+class BatchConfirmItem(ReviewSchema):
+    insight_id: NonEmpty = Field(max_length=36)
+    expected_revision: int = Field(ge=0)
+
+
+class BatchConfirmRequest(ReviewSchema):
+    items: Annotated[list[BatchConfirmItem], Field(min_length=1, max_length=50)]
+
+    @model_validator(mode="after")
+    def insight_ids_are_unique(self) -> "BatchConfirmRequest":
+        ids = [item.insight_id for item in self.items]
+        if len(ids) != len(set(ids)):
+            raise ValueError("batch confirmation insight IDs must be unique")
+        return self
+
+
+class BatchConfirmResponse(ReviewSchema):
+    confirmed_ids: Annotated[list[str], Field(min_length=1, max_length=50)]
+    confirmed_count: int = Field(ge=1, le=50)
+
+    @model_validator(mode="after")
+    def count_matches_unique_ids(self) -> "BatchConfirmResponse":
+        if len(self.confirmed_ids) != len(set(self.confirmed_ids)):
+            raise ValueError("confirmed Insight IDs must be unique")
+        if self.confirmed_count != len(self.confirmed_ids):
+            raise ValueError("confirmed count must match confirmed IDs")
+        return self
+
+
 class RejectInsightRequest(ReviewSchema):
     expected_revision: int = Field(ge=0)
     note: NonEmpty = Field(min_length=3, max_length=2_000)

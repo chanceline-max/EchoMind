@@ -95,7 +95,18 @@ export interface ReviewMutationResponse {
   revision: InsightRevision;
 }
 
+export interface BatchConfirmItem {
+  insight_id: string;
+  expected_revision: number;
+}
+
+export interface BatchConfirmResponse {
+  confirmed_ids: string[];
+  confirmed_count: number;
+}
+
 export interface InsightFilters {
+  reviewBucket: string;
   status: string;
   insightType: string;
   category: string;

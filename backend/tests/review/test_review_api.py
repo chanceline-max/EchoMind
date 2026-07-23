@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from echomind.core.config import Settings
 from echomind.db.session import create_db_engine, create_session_factory
+from echomind.models import Insight
 from tests.review.factories import ReviewGraph, create_review_graph
 
 pytestmark = pytest.mark.anyio
@@ -77,6 +78,47 @@ async def test_confirm_and_revision_history_use_expected_revision(
     assert history.status_code == 200
     assert history.json()["total"] == 1
     assert history.json()["items"][0]["action"] == "confirmed"
+
+
+async def test_batch_confirm_is_private_origin_checked_and_writes_each_revision(
+    client: AsyncClient,
+    settings: Settings,
+) -> None:
+    graph = seeded_graph(settings)
+    engine = create_db_engine(settings.database_url)
+    session: Session = create_session_factory(engine)()
+    try:
+        for insight in graph.insights:
+            stored = session.get(Insight, insight.id)
+            assert stored is not None
+            stored.confidence = 0.8
+        session.commit()
+    finally:
+        session.close()
+        engine.dispose()
+
+    response = await client.post(
+        "/api/v1/insights/batch-confirm",
+        json={
+            "items": [
+                {"insight_id": insight.id, "expected_revision": 0} for insight in graph.insights
+            ]
+        },
+        headers=ORIGIN,
+    )
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {
+        "confirmed_ids": [insight.id for insight in graph.insights],
+        "confirmed_count": 2,
+    }
+
+    untrusted = await client.post(
+        "/api/v1/insights/batch-confirm",
+        json={"items": [{"insight_id": graph.insights[0].id, "expected_revision": 1}]},
+        headers={"Origin": "https://untrusted.example"},
+    )
+    assert untrusted.status_code == 403
 
 
 async def test_patch_rejects_confidence_and_unknown_fields(

@@ -15,14 +15,18 @@ from echomind.db.types import utc_now
 from echomind.models import Insight
 from echomind.models.enums import (
     EvidenceInvalidationReason,
+    EvidenceState,
     InsightRevisionAction,
     InsightStatus,
+    InsightType,
     RevisionActorType,
 )
 from echomind.models.insight_revision import InsightRevision
 from echomind.repositories import insight_review_repository as repository
 from echomind.schemas.insight_review import (
     AllowedAction,
+    BatchConfirmRequest,
+    BatchConfirmResponse,
     EvidenceDetail,
     InsightDetail,
     InsightEditRequest,
@@ -39,6 +43,16 @@ from echomind.schemas.insight_review import (
 
 Clock = Callable[[], datetime]
 STATEMENT_SUMMARY_LIMIT = 240
+BATCH_CONFIRM_THRESHOLD = 0.5
+BATCH_CONFIRM_TYPES = frozenset(
+    {
+        InsightType.FACT,
+        InsightType.PREFERENCE,
+        InsightType.PATTERN,
+        InsightType.CHANGE,
+    }
+)
+BATCH_CONFIRM_NOTE = "批量确认：最终置信度高于 50%，类型和证据状态符合快速确认规则。"
 
 
 def _now(clock: Clock) -> datetime:
@@ -467,6 +481,76 @@ def confirm_insight(
         restored_action=InsightRevisionAction.RESTORED_TO_CONFIRMED,
         note=payload.note,
         clock=clock,
+    )
+
+
+def _assert_batch_confirm_eligible(insight: Insight) -> None:
+    if (
+        insight.status is InsightStatus.PROPOSED
+        and insight.confidence > BATCH_CONFIRM_THRESHOLD
+        and insight.evidence_state is EvidenceState.VALID
+        and insight.insight_type in BATCH_CONFIRM_TYPES
+    ):
+        return
+    raise ApiError(
+        "insight_not_batch_eligible",
+        status_code=409,
+        message="The Insight requires individual review.",
+        recoverable=True,
+        details={
+            "insight_id": insight.id,
+            "status": insight.status.value,
+            "insight_type": insight.insight_type.value,
+            "evidence_state": insight.evidence_state.value,
+            "confidence_above_threshold": insight.confidence > BATCH_CONFIRM_THRESHOLD,
+        },
+    )
+
+
+def batch_confirm_insights(
+    session: Session,
+    payload: BatchConfirmRequest,
+    *,
+    clock: Clock = utc_now,
+) -> BatchConfirmResponse:
+    now = _now(clock)
+    confirmed_ids: list[str] = []
+    with session.begin():
+        for item in payload.items:
+            insight = repository.get_insight(session, item.insight_id)
+            if insight is None:
+                raise ApiError(
+                    "insight_not_found",
+                    status_code=404,
+                    message="The requested Insight does not exist.",
+                )
+            _ensure_expected_revision(insight, item.expected_revision)
+            _assert_batch_confirm_eligible(insight)
+            before = review_snapshot(insight)
+            _claim_revision(
+                session,
+                insight,
+                expected_revision=item.expected_revision,
+                changed_at=now,
+            )
+            insight.status = InsightStatus.CONFIRMED
+            insight.superseded_by_insight_id = None
+            insight.reviewed_at = now
+            session.flush()
+            _add_revision(
+                session,
+                insight,
+                action=InsightRevisionAction.CONFIRMED,
+                actor=RevisionActorType.LOCAL_USER,
+                expected_previous_revision=item.expected_revision,
+                before=before,
+                note=BATCH_CONFIRM_NOTE,
+                created_at=now,
+            )
+            confirmed_ids.append(insight.id)
+    return BatchConfirmResponse(
+        confirmed_ids=confirmed_ids,
+        confirmed_count=len(confirmed_ids),
     )
 
 

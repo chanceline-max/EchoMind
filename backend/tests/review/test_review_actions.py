@@ -7,9 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from echomind.api.errors import ApiError
-from echomind.models.enums import InsightRevisionAction, InsightStatus, InsightType
+from echomind.models.enums import EvidenceState, InsightRevisionAction, InsightStatus, InsightType
 from echomind.models.insight_revision import InsightRevision
 from echomind.schemas.insight_review import (
+    BatchConfirmItem,
+    BatchConfirmRequest,
     InsightEditRequest,
     RejectInsightRequest,
     RestoreInsightRequest,
@@ -17,6 +19,8 @@ from echomind.schemas.insight_review import (
     SupersedeInsightRequest,
 )
 from echomind.services.insight_review_service import (
+    BATCH_CONFIRM_NOTE,
+    batch_confirm_insights,
     confirm_insight,
     edit_insight,
     reject_insight,
@@ -76,6 +80,92 @@ def test_stale_revision_returns_conflict_before_status_validation(db_session: Se
     assert caught.value.status_code == 409
     assert caught.value.payload.error_code == "insight_revision_conflict"
     assert caught.value.payload.details["current_revision"] == 1
+
+
+def test_batch_confirm_records_an_independent_revision_for_each_eligible_insight(
+    db_session: Session,
+) -> None:
+    first, second = create_review_graph(db_session).insights
+    first.confidence = 0.5001
+    second.confidence = 0.8
+    db_session.commit()
+
+    response = batch_confirm_insights(
+        db_session,
+        BatchConfirmRequest(
+            items=[
+                BatchConfirmItem(insight_id=first.id, expected_revision=0),
+                BatchConfirmItem(insight_id=second.id, expected_revision=0),
+            ]
+        ),
+        clock=fixed_clock,
+    )
+
+    assert response.confirmed_ids == [first.id, second.id]
+    assert response.confirmed_count == 2
+    revisions = list(
+        db_session.scalars(select(InsightRevision).order_by(InsightRevision.insight_id))
+    )
+    assert len(revisions) == 2
+    assert all(item.action is InsightRevisionAction.CONFIRMED for item in revisions)
+    assert all(item.note == BATCH_CONFIRM_NOTE for item in revisions)
+
+
+@pytest.mark.parametrize(
+    ("confidence", "insight_type", "evidence_state"),
+    [
+        (0.5, InsightType.FACT, EvidenceState.VALID),
+        (0.8, InsightType.INFERENCE, EvidenceState.VALID),
+        (0.8, InsightType.HYPOTHESIS, EvidenceState.VALID),
+        (0.8, InsightType.CONTRADICTION, EvidenceState.VALID),
+        (0.8, InsightType.FACT, EvidenceState.PARTIAL),
+    ],
+)
+def test_batch_confirm_rejects_manual_review_cases(
+    db_session: Session,
+    confidence: float,
+    insight_type: InsightType,
+    evidence_state: EvidenceState,
+) -> None:
+    first = create_review_graph(db_session, insight_count=1).insights[0]
+    first.confidence = confidence
+    first.insight_type = insight_type
+    first.evidence_state = evidence_state
+    db_session.commit()
+
+    with pytest.raises(ApiError) as caught:
+        batch_confirm_insights(
+            db_session,
+            BatchConfirmRequest(items=[BatchConfirmItem(insight_id=first.id, expected_revision=0)]),
+            clock=fixed_clock,
+        )
+    assert caught.value.payload.error_code == "insight_not_batch_eligible"
+
+
+def test_batch_confirm_is_atomic_when_a_later_item_is_not_eligible(
+    db_session: Session,
+) -> None:
+    first, second = create_review_graph(db_session).insights
+    first.confidence = 0.8
+    second.confidence = 0.8
+    second.insight_type = InsightType.INFERENCE
+    db_session.commit()
+
+    with pytest.raises(ApiError):
+        batch_confirm_insights(
+            db_session,
+            BatchConfirmRequest(
+                items=[
+                    BatchConfirmItem(insight_id=first.id, expected_revision=0),
+                    BatchConfirmItem(insight_id=second.id, expected_revision=0),
+                ]
+            ),
+            clock=fixed_clock,
+        )
+    db_session.expire_all()
+    assert first.status is InsightStatus.PROPOSED
+    assert second.status is InsightStatus.PROPOSED
+    assert db_session.scalar(select(InsightRevision).limit(1)) is None
 
 
 def test_reject_requires_note_and_restore_recalculates(db_session: Session) -> None:

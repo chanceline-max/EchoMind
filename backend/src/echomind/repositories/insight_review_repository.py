@@ -1,7 +1,7 @@
 """Concrete, stage-nine queries for Insight review and Evidence traceability."""
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from sqlalchemy import ColumnElement, Select, and_, case, exists, func, select
 from sqlalchemy.orm import Session
@@ -16,6 +16,24 @@ class InsightCounts:
     evidence_count: int
     valid_evidence_count: int
     contradicting_evidence_count: int
+
+
+ReviewBucket = Literal["batch_eligible", "manual"]
+BATCH_ELIGIBLE_TYPES = (
+    InsightType.FACT,
+    InsightType.PREFERENCE,
+    InsightType.PATTERN,
+    InsightType.CHANGE,
+)
+
+
+def batch_eligible_expression() -> ColumnElement[bool]:
+    return and_(
+        Insight.status == InsightStatus.PROPOSED,
+        Insight.confidence > 0.5,
+        Insight.evidence_state == EvidenceState.VALID,
+        Insight.insight_type.in_(BATCH_ELIGIBLE_TYPES),
+    )
 
 
 def _evidence_stats() -> Select[tuple[str, int, int, int]]:
@@ -53,6 +71,7 @@ def _filters(
     conversation_id: str | None,
     source_file_id: str | None,
     has_contradicting_evidence: bool | None,
+    review_bucket: ReviewBucket | None,
 ) -> list[ColumnElement[bool]]:
     filters: list[ColumnElement[bool]] = []
     if status is not None:
@@ -106,6 +125,9 @@ def _filters(
             )
         )
         filters.append(has_contradiction if has_contradicting_evidence else ~has_contradiction)
+    if review_bucket is not None:
+        eligible = batch_eligible_expression()
+        filters.append(eligible if review_bucket == "batch_eligible" else ~eligible)
     return filters
 
 
@@ -121,6 +143,7 @@ def list_insights(
     conversation_id: str | None,
     source_file_id: str | None,
     has_contradicting_evidence: bool | None,
+    review_bucket: ReviewBucket | None,
     limit: int,
     offset: int,
     sort: str,
@@ -135,6 +158,7 @@ def list_insights(
         conversation_id=conversation_id,
         source_file_id=source_file_id,
         has_contradicting_evidence=has_contradicting_evidence,
+        review_bucket=review_bucket,
     )
     total = session.scalar(select(func.count()).select_from(Insight).where(*filters)) or 0
     stats = _evidence_stats().subquery()

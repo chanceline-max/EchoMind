@@ -100,6 +100,7 @@ data/
 - 前端仅使用内存 TanStack Query，不写 localStorage、sessionStorage、IndexedDB、Service Worker 或持久化 Query cache。运行时验证拒绝缺字段、错误 sender role 和畸形 revision 响应；正文使用 React 文本渲染，不使用 `dangerouslySetInnerHTML`。
 - Evidence 详情只公开匿名角色 PROFILE_OWNER/OTHER，不返回参与者姓名、raw_content、Prompt 或 Provider 响应。Revision snapshot 会保存 Insight title/statement 等敏感派生文本，必须按聊天正文同级保护；它不复制消息正文或 Evidence excerpt。
 - 审核不会调用 Provider 或网络模型；E2E 数据由正式本地 Import、离线 Mock Extraction 和 Confidence Service 创建，测试完成后数据库、上传临时目录和 Playwright 结果自动清理。
+- 高置信批量确认只发送显式 Insight ID 与 expected revision，不发送聊天正文或 Evidence excerpt；响应只返回已确认 ID 和数量并使用 `no-store`。操作由用户显式确认，后端整批重验并为每条保留独立 Revision。
 - rejected、superseded、消息排除和 Evidence 失效都不是删除。恢复消息只移除用户排除及其派生的 `source_message_excluded`，其他自动或人工原因继续保留。
 
 ### 阶段 10 Profile 隐私边界
