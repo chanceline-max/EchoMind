@@ -2,6 +2,8 @@ import type { EvidenceState, InsightType } from "./insights";
 
 export type ProfileSourceStatus = "current" | "stale" | "source_unavailable";
 export type EvidenceMode = "references" | "excerpts";
+export type PersonalityTendency = "low" | "moderately_low" | "balanced" | "moderately_high" | "high" | "insufficient";
+export type AssessmentConfidence = "low" | "medium" | "high" | "insufficient";
 
 export interface ProfileEvidenceItem {
   profile_evidence_ref: string;
@@ -50,6 +52,44 @@ export interface ProfileSection {
   items: ProfileInsightItem[];
 }
 
+export interface PersonalityDimension {
+  dimension_key: string;
+  label: string;
+  tendency: PersonalityTendency;
+  summary: string;
+}
+
+export interface PersonalityFrameworkAssessment {
+  framework: "big_five" | "mbti";
+  display_name: string;
+  result: string;
+  confidence: AssessmentConfidence;
+  summary: string;
+  dimensions: PersonalityDimension[];
+  caveats: string[];
+}
+
+export interface PersonalitySynthesis {
+  synthesis_version: "personality-synthesis-1.0";
+  headline: string;
+  overall_summary: string;
+  core_traits: string[];
+  thinking_style: string;
+  decision_style: string;
+  motivation_and_values: string;
+  social_and_relationship_style: string;
+  emotional_and_stress_patterns: string;
+  strengths: string[];
+  growth_edges: string[];
+  tensions_and_changes: string[];
+  framework_assessments: PersonalityFrameworkAssessment[];
+  uncertainty_note: string;
+  provider_name: string;
+  model_name: string;
+  input_insight_count: number;
+  omitted_insight_count: number;
+}
+
 export interface ProfileDocument {
   metadata: {
     profile_id: string;
@@ -73,6 +113,7 @@ export interface ProfileDocument {
     source_file_count: number;
     limitations: string[];
   };
+  personality_synthesis: PersonalitySynthesis | null;
   sections: ProfileSection[];
   evidence_index: ProfileEvidenceItem[];
 }
@@ -123,5 +164,7 @@ export interface ProfileGenerationOptions {
   includeInvalidated: boolean;
   evidenceMode: EvidenceMode;
   includeReasoning: boolean;
+  includePersonalitySynthesis: boolean;
+  remoteConsent: boolean;
   generatedAsOf: string;
 }

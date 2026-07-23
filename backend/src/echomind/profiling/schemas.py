@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from echomind.models.enums import EvidenceState, InsightType
 from echomind.profiling.options import EvidenceMode, ProfileScope
@@ -11,6 +11,95 @@ from echomind.profiling.options import EvidenceMode, ProfileScope
 
 class ProfileSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+PersonalityTendency = Literal[
+    "low",
+    "moderately_low",
+    "balanced",
+    "moderately_high",
+    "high",
+    "insufficient",
+]
+AssessmentConfidence = Literal["low", "medium", "high", "insufficient"]
+FrameworkKey = Literal["big_five", "mbti"]
+DimensionKey = Literal[
+    "openness",
+    "conscientiousness",
+    "extraversion",
+    "agreeableness",
+    "emotional_stability",
+    "energy",
+    "information",
+    "decisions",
+    "lifestyle",
+]
+
+
+class PersonalityDimension(ProfileSchema):
+    dimension_key: DimensionKey
+    label: str = Field(min_length=1, max_length=80)
+    tendency: PersonalityTendency
+    summary: str = Field(min_length=1, max_length=800)
+
+
+class PersonalityFrameworkAssessment(ProfileSchema):
+    framework: FrameworkKey
+    display_name: str = Field(min_length=1, max_length=80)
+    result: str = Field(min_length=1, max_length=120)
+    confidence: AssessmentConfidence
+    summary: str = Field(min_length=1, max_length=1_500)
+    dimensions: list[PersonalityDimension] = Field(min_length=4, max_length=5)
+    caveats: list[str] = Field(min_length=1, max_length=6)
+
+    @model_validator(mode="after")
+    def validate_dimensions(self) -> "PersonalityFrameworkAssessment":
+        expected = (
+            {
+                "openness",
+                "conscientiousness",
+                "extraversion",
+                "agreeableness",
+                "emotional_stability",
+            }
+            if self.framework == "big_five"
+            else {"energy", "information", "decisions", "lifestyle"}
+        )
+        actual = {item.dimension_key for item in self.dimensions}
+        if actual != expected or len(actual) != len(self.dimensions):
+            raise ValueError("framework dimensions must match the selected framework")
+        return self
+
+
+class PersonalitySynthesis(ProfileSchema):
+    synthesis_version: Literal["personality-synthesis-1.0"] = "personality-synthesis-1.0"
+    headline: str = Field(min_length=1, max_length=120)
+    overall_summary: str = Field(min_length=1, max_length=4_000)
+    core_traits: list[str] = Field(min_length=3, max_length=8)
+    thinking_style: str = Field(min_length=1, max_length=2_000)
+    decision_style: str = Field(min_length=1, max_length=2_000)
+    motivation_and_values: str = Field(min_length=1, max_length=2_000)
+    social_and_relationship_style: str = Field(min_length=1, max_length=2_000)
+    emotional_and_stress_patterns: str = Field(min_length=1, max_length=2_000)
+    strengths: list[str] = Field(min_length=2, max_length=8)
+    growth_edges: list[str] = Field(min_length=2, max_length=8)
+    tensions_and_changes: list[str] = Field(max_length=8)
+    framework_assessments: list[PersonalityFrameworkAssessment] = Field(
+        min_length=2,
+        max_length=2,
+    )
+    uncertainty_note: str = Field(min_length=1, max_length=1_500)
+    provider_name: str = Field(min_length=1, max_length=128)
+    model_name: str = Field(min_length=1, max_length=256)
+    input_insight_count: int = Field(ge=1)
+    omitted_insight_count: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_frameworks(self) -> "PersonalitySynthesis":
+        frameworks = [item.framework for item in self.framework_assessments]
+        if frameworks != ["big_five", "mbti"]:
+            raise ValueError("framework assessments must contain Big Five followed by MBTI")
+        return self
 
 
 class ProfileEvidenceItem(ProfileSchema):
@@ -98,6 +187,7 @@ class ProfileDocumentMetadata(ProfileSchema):
 
 class EchoProfileDocument(ProfileSchema):
     metadata: ProfileDocumentMetadata
+    personality_synthesis: PersonalitySynthesis | None = None
     sections: list[ProfileSection]
     evidence_index: list[ProfileEvidenceItem]
 

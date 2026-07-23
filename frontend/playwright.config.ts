@@ -5,11 +5,15 @@ import { defineConfig } from "@playwright/test";
 
 const frontendDirectory = path.dirname(fileURLToPath(import.meta.url));
 const backendDirectory = path.resolve(frontendDirectory, "..", "backend");
+const backendPort = process.env.E2E_BACKEND_PORT ?? "8000";
+const frontendPort = process.env.E2E_FRONTEND_PORT ?? "5173";
+const backendUrl = `http://127.0.0.1:${backendPort}`;
+const frontendUrl = `http://127.0.0.1:${frontendPort}`;
 const backendCommand =
   process.platform === "win32"
-    ? ".\\.venv\\Scripts\\python.exe -c \"from pathlib import Path; Path(r'data/playwright-stage10.db').unlink(missing_ok=True)\" && .\\.venv\\Scripts\\python.exe -m alembic upgrade head && .\\.venv\\Scripts\\python.exe ..\\scripts\\seed_stage10_e2e.py && .\\.venv\\Scripts\\python.exe -m uvicorn echomind.main:app --host 127.0.0.1 --port 8000"
-    : "./.venv/bin/python -c \"from pathlib import Path; Path('data/playwright-stage10.db').unlink(missing_ok=True)\" && ./.venv/bin/python -m alembic upgrade head && ./.venv/bin/python ../scripts/seed_stage10_e2e.py && ./.venv/bin/python -m uvicorn echomind.main:app --host 127.0.0.1 --port 8000";
-const frontendCommand = `"${process.execPath}" ./node_modules/vite/bin/vite.js --host 127.0.0.1`;
+    ? `.\\.venv\\Scripts\\python.exe -c "from pathlib import Path; Path(r'data/playwright-stage10.db').unlink(missing_ok=True)" && .\\.venv\\Scripts\\python.exe -m alembic upgrade head && .\\.venv\\Scripts\\python.exe ..\\scripts\\seed_stage10_e2e.py && .\\.venv\\Scripts\\python.exe -m uvicorn echomind.main:app --host 127.0.0.1 --port ${backendPort}`
+    : `./.venv/bin/python -c "from pathlib import Path; Path('data/playwright-stage10.db').unlink(missing_ok=True)" && ./.venv/bin/python -m alembic upgrade head && ./.venv/bin/python ../scripts/seed_stage10_e2e.py && ./.venv/bin/python -m uvicorn echomind.main:app --host 127.0.0.1 --port ${backendPort}`;
+const frontendCommand = `"${process.execPath}" ./node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${frontendPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -19,7 +23,7 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: frontendUrl,
   },
   webServer: [
     {
@@ -28,8 +32,9 @@ export default defineConfig({
       env: {
         ...process.env,
         DATABASE_URL: "sqlite:///./data/playwright-stage10.db",
+        FRONTEND_ORIGINS: JSON.stringify([frontendUrl]),
       },
-      url: "http://127.0.0.1:8000/api/v1/health",
+      url: `${backendUrl}/api/v1/health`,
       reuseExistingServer: false,
       timeout: 30_000,
     },
@@ -38,9 +43,9 @@ export default defineConfig({
       cwd: frontendDirectory,
       env: {
         ...process.env,
-        VITE_API_BASE_URL: "http://127.0.0.1:8000",
+        VITE_API_BASE_URL: backendUrl,
       },
-      url: "http://127.0.0.1:5173",
+      url: frontendUrl,
       reuseExistingServer: false,
       timeout: 30_000,
     },

@@ -21,6 +21,8 @@ class ProfileGraph:
 def profile_request(**changes: object) -> ProfileGenerationRequest:
     values: dict[str, object] = {
         "request_id": UUID("00000000-0000-0000-0000-000000000010"),
+        "profile_version": "echo-profile-1.0",
+        "profile_schema_version": "echo-profile-document-1.0",
         "generated_as_of": datetime(2026, 7, 21, 12, tzinfo=UTC),
     }
     values.update(changes)

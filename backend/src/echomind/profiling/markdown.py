@@ -3,7 +3,13 @@
 import re
 from datetime import datetime
 
-from echomind.profiling.schemas import EchoProfileDocument, ProfileEvidenceItem, ProfileInsightItem
+from echomind.profiling.schemas import (
+    EchoProfileDocument,
+    PersonalityFrameworkAssessment,
+    PersonalitySynthesis,
+    ProfileEvidenceItem,
+    ProfileInsightItem,
+)
 
 _URL_SCHEME = re.compile(r"(?i)\b(https?)://")
 
@@ -68,8 +74,122 @@ def _evidence(lines: list[str], item: ProfileEvidenceItem) -> None:
     lines.append("")
 
 
+def _framework(lines: list[str], item: PersonalityFrameworkAssessment) -> None:
+    lines.extend(
+        [
+            f"### {escape_markdown(item.display_name)}",
+            "",
+            f"**参考结果：{escape_markdown(item.result)}**",
+            "",
+            escape_markdown(item.summary),
+            "",
+            "| 维度 | 倾向 | 说明 |",
+            "|---|---|---|",
+        ]
+    )
+    for dimension in item.dimensions:
+        lines.append(
+            "| "
+            + " | ".join(
+                (
+                    escape_markdown(dimension.label),
+                    escape_markdown(dimension.tendency),
+                    escape_markdown(dimension.summary),
+                )
+            )
+            + " |"
+        )
+    lines.extend(["", *[f"- 边界：{escape_markdown(value)}" for value in item.caveats], ""])
+
+
+def _synthesis(lines: list[str], synthesis: PersonalitySynthesis) -> None:
+    lines.extend(
+        [
+            "# EchoProfile 综合人格分析",
+            "",
+            "> AI 辅助的倾向分析，不是心理诊断或正式人格测评。",
+            "",
+            "## 1. 综合人格类型",
+            "",
+            f"# {escape_markdown(synthesis.headline)}",
+            "",
+            escape_markdown(synthesis.overall_summary),
+            "",
+            "## 2. 核心性格特征",
+            "",
+            *[f"- {escape_markdown(value)}" for value in synthesis.core_traits],
+            "",
+            "## 3. 思考与信息处理方式",
+            "",
+            escape_markdown(synthesis.thinking_style),
+            "",
+            "## 4. 决策与行动模式",
+            "",
+            escape_markdown(synthesis.decision_style),
+            "",
+            "## 5. 价值观与内在驱动力",
+            "",
+            escape_markdown(synthesis.motivation_and_values),
+            "",
+            "## 6. 社交与关系模式",
+            "",
+            escape_markdown(synthesis.social_and_relationship_style),
+            "",
+            "## 7. 情绪与压力模式",
+            "",
+            escape_markdown(synthesis.emotional_and_stress_patterns),
+            "",
+            "## 8. 可能的优势",
+            "",
+            *[f"- {escape_markdown(value)}" for value in synthesis.strengths],
+            "",
+            "## 9. 潜在盲区与成长方向",
+            "",
+            *[f"- {escape_markdown(value)}" for value in synthesis.growth_edges],
+            "",
+            "## 10. 内在矛盾与变化",
+            "",
+            *(
+                [f"- {escape_markdown(value)}" for value in synthesis.tensions_and_changes]
+                or ["- 暂未识别到足够稳定的矛盾或变化。"]
+            ),
+            "",
+            "## 11. 人格框架参考",
+            "",
+        ]
+    )
+    for framework in synthesis.framework_assessments:
+        _framework(lines, framework)
+    lines.extend(
+        [
+            "## 12. 不确定性与适用边界",
+            "",
+            escape_markdown(synthesis.uncertainty_note),
+            "",
+        ]
+    )
+
+
 def render_markdown(document: EchoProfileDocument) -> str:
     metadata = document.metadata
+    if document.personality_synthesis is not None:
+        lines: list[str] = []
+        _synthesis(lines, document.personality_synthesis)
+        lines.extend(["## 13. 档案信息", ""])
+        lines.extend(
+            [
+                f"- Profile 版本：{metadata.profile_version}",
+                f"- Schema 版本：{metadata.schema_version}",
+                f"- 生成时间：{_time(metadata.generated_at)}",
+                f"- 已确认 Insight：{metadata.confirmed_insight_count}",
+                "- 当前来源状态：current（历史快照读取时动态检测）",
+                "",
+                "## 14. 局限性说明",
+                "",
+                *[f"- {escape_markdown(value)}" for value in metadata.limitations],
+            ]
+        )
+        return "\n".join(lines).rstrip("\n") + "\n"
     displayed_insight_count = sum(len(section.items) for section in document.sections)
     lines = [
         "# EchoProfile",

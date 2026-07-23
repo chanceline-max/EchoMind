@@ -4,12 +4,14 @@ from datetime import UTC, datetime
 from typing import cast
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from echomind.core.config import Settings
+from echomind.db.base import Base
 from echomind.db.session import create_db_engine, create_session_factory
+from echomind.main import create_app
 from echomind.models import ProfileSnapshot
 from echomind.models.enums import EvidenceState, InsightStatus
 from echomind.profiling import service as profile_service
@@ -257,6 +259,53 @@ async def test_profile_api_security_errors_origin_and_no_destructive_routes(
     for method in (client.patch, client.delete):
         response = await method("/api/v1/profiles/missing", headers=ORIGIN)
         assert response.status_code in {404, 405}
+
+
+async def test_profile_two_api_returns_synthesis_without_user_facing_evidence(
+    client: AsyncClient, settings: Settings
+) -> None:
+    seed_api(settings)
+    body = profile_request(
+        profile_version="echo-profile-2.0",
+        profile_schema_version="echo-profile-document-2.0",
+        include_personality_synthesis=True,
+    ).model_dump(mode="json")
+    created = await client.post("/api/v1/profiles", json=body, headers=ORIGIN)
+    assert created.status_code == 201
+    detail = await client.get(f"/api/v1/profiles/{created.json()['profile_snapshot_id']}")
+    document = detail.json()["document"]
+    assert document["personality_synthesis"]["framework_assessments"][0]["framework"] == "big_five"
+    assert document["personality_synthesis"]["framework_assessments"][1]["framework"] == "mbti"
+    assert document["evidence_index"] == []
+    assert all(
+        item["evidence_refs"] == [] for section in document["sections"] for item in section["items"]
+    )
+    assert "message_id" not in detail.text
+    assert "conversation_id" not in detail.text
+
+
+async def test_remote_profile_synthesis_requires_explicit_consent(
+    settings: Settings,
+) -> None:
+    remote_settings = settings.model_copy(update={"llm_provider": "openai_compatible"})
+    app = create_app(remote_settings)
+    Base.metadata.create_all(app.state.engine)
+    transport = ASGITransport(app=app)
+    try:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as test_client:
+            response = await test_client.post(
+                "/api/v1/profiles",
+                json=profile_request(
+                    profile_version="echo-profile-2.0",
+                    profile_schema_version="echo-profile-document-2.0",
+                    include_personality_synthesis=True,
+                ).model_dump(mode="json"),
+                headers=ORIGIN,
+            )
+    finally:
+        app.state.engine.dispose()
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "remote_consent_required"
 
 
 async def test_profile_api_handles_empty_source_and_legacy_snapshot_safely(

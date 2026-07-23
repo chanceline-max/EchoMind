@@ -158,15 +158,18 @@ explicit Insight IDs + as_of → content-free database snapshot
 
 ```text
 confirmed Insight + local Evidence → safe source snapshot
-→ profile-source-1.0 → section routing + stable I/E references
-→ EchoProfileDocument → Markdown + JSON → document hash
+→ profile-source-1.0 → bounded confirmed-Insight context
+→ LLMProvider structured personality synthesis
+→ EchoProfileDocument 2.0 → Markdown + JSON → document hash
 → profile-generation-1.0 unique reuse → immutable ProfileSnapshot
 ```
 
 - `confirmed-only-1.0` 是阶段 10 唯一策略；proposed/rejected/superseded 和 confidence 门槛均不参与选择。
-- Repository 只读取生成所需字段，不读取 raw_content、Participant 姓名、文件名或路径。references 不复制 excerpt；excerpts 只复制阶段 7 已持久化 excerpt。
+- EchoProfile 1.0 继续只读兼容。2.0 必须存在 `PersonalitySynthesis`，并恰好包含 Big Five 与 MBTI 两个非决定性参考框架。
+- Repository 只读取生成所需字段，不读取 raw_content、Participant 姓名、文件名或路径。2.0 Provider 只接收 confirmed Insight 的类型、类别、标题、陈述、最终 confidence、证据状态、自述标记、有效期、推理依据和其他解释；不发送聊天正文、Evidence excerpt、数据库 ID、姓名、文件或路径。
+- 输入按确定性顺序分块并受 18,000 字符单块、80,000 字符总量限制；省略数量写入综合结果。默认 Mock 只返回信息不足，不伪造真实人格分析；远程调用继续执行 Provider 双重授权。
 - 选择、章节路由、引用、指纹、双 renderer、持久化和 HTTP API 分层；FastAPI 路由不拼装档案正文。
-- Markdown/JSON 只从严格 `EchoProfileDocument` 渲染；JSON 使用规范化键序，Markdown 对控制字符、HTML 和 URL scheme 安全处理。
+- Markdown/JSON 只从严格 `EchoProfileDocument` 渲染。2.0 面向用户的 Document/Markdown/UI 不含 Evidence 索引、Evidence 引用、Message ID 或 Conversation ID；内部 source manifest 和 Snapshot 来源结构继续负责 stale 与证据失效检测。
 - Source fingerprint 覆盖当前审核/证据来源；generation fingerprint 覆盖来源、选项和 renderer 版本并有唯一索引；document hash 校验冻结 JSON 完整性。
 - Snapshot 在短写事务前重验来源，最多重试一次；并发唯一冲突返回已存在快照。ORM 拒绝 Snapshot update/delete。
 - stale 在读取时用原选项动态计算；历史 JSON/Markdown/Hash 永不回写。列表只返回安全摘要，详情返回结构化文档，导出必须由用户显式点击。

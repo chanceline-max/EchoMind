@@ -231,6 +231,17 @@
 - 原因：置信度是机械证据支撑强度，不是正确概率，直接自动确认会把 AI 判断无提示写成正式结论；但对满足窄规则的候选逐条点击也造成明显使用负担。显式批量操作在保留用户最终解释权的同时减少重复操作。
 - 后果：高分候选在用户点击前仍保持 proposed，不进入 confirmed-only Profile。每批上限为 50；并发修改、证据失效或分数/类型变化会安全拒绝整批，用户刷新后重新选择。
 
+## ADR-029：EchoProfile 2.0 使用综合人格叙事与双框架辅助映射
+
+- 状态：Accepted
+- 日期：2026-07-23
+- 决策：保留 `echo-profile-1.0` 历史快照只读兼容；`echo-profile-2.0` 必须通过统一 `LLMProvider` 从 confirmed Insight 生成严格 `PersonalitySynthesis`。最终正文围绕性格、思维、决策、价值、关系、压力、优势、成长、矛盾和变化组织，不把 Insight/Evidence 卡片堆叠作为人物档案。
+- 决策：2.0 必须按 Big Five、MBTI 顺序提供两个辅助框架。Big Five 固定五维，MBTI 固定四组偏好；每项都必须记录参考强度和限制。两者不是标准化测评、诊断或决定性人格标签。
+- 决策：2.0 的公开 Document、Markdown 与 UI 不展示 Evidence 索引、Evidence 引用、Message ID 或 Conversation ID；数据库 Evidence、source manifest、fingerprint 和 stale/失效传播保持不变。旧 1.0 输出继续保留原有 I/E 引用。
+- 决策：Provider 只接收有上限的 confirmed Insight 派生字段，不接收 raw/normalized 聊天正文、Evidence excerpt、数据库/源 ID、姓名、文件或路径。默认 Mock 只返回信息不足；远程调用必须继续满足服务端启用和逐请求 consent。
+- 原因：用户需要的是跨信息的整体理解，而不是把审核材料换一种格式堆叠；但隐藏用户界面中的引用不能破坏 EchoMind 的证据优先、可失效和可审计原则。双框架提供熟悉的描述语言，同时通过非决定性边界降低单一标签误导。
+- 后果：2.0 的真实个性化分析依赖经授权的结构化 Provider；默认离线体验只验证流程。模型可能产生过度概括，聊天样本也可能有情境偏差，因此输出必须保留不确定性且允许未来重生成。当前不支持正式问卷、逐段编辑或自动改写旧 Snapshot。
+
 ## 尚未决策
 
 1. 获得授权脱敏 WeFlow 样本后的真实字段映射。

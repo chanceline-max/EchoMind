@@ -19,6 +19,8 @@ from echomind.profiling.options import EvidenceMode
 from echomind.profiling.persistence import safe_generated_date
 from echomind.profiling.schemas import StalenessResult
 from echomind.profiling.service import detect_staleness, generate_profile, read_document
+from echomind.profiling.synthesis import ProfileProviderFactory
+from echomind.providers.errors import ProviderError
 from echomind.repositories import profile_repository
 from echomind.schemas.profiles import (
     ProfileDetail,
@@ -83,10 +85,35 @@ def create_profile(
 ) -> ProfileGenerationResponse:
     factory = cast(sessionmaker[Session], request.app.state.session_factory)
     settings = cast(Settings, request.app.state.settings)
+    provider = None
+    if payload.include_personality_synthesis:
+        if settings.llm_provider == "openai_compatible" and not payload.remote_consent:
+            raise ApiError(
+                "remote_consent_required",
+                status_code=422,
+                message="Remote personality synthesis requires explicit consent.",
+            )
+        provider_factory = cast(
+            ProfileProviderFactory,
+            request.app.state.profile_provider_factory,
+        )
+        provider = provider_factory(settings)
     try:
-        snapshot, created = generate_profile(factory, payload, settings=settings)
+        snapshot, created = generate_profile(
+            factory,
+            payload,
+            settings=settings,
+            provider=provider,
+        )
     except ProfileError as error:
         _raise_api(error)
+    except ProviderError as error:
+        raise ApiError(
+            error.error_code.value,
+            status_code=503,
+            message=error.message,
+            recoverable=error.recoverable,
+        ) from error
     response.status_code = 201 if created else 200
     set_private_response_headers(response)
     return ProfileGenerationResponse(

@@ -11,11 +11,14 @@ from echomind.db.types import utc_now
 from echomind.models.profile_snapshot import ProfileSnapshot
 from echomind.profiling.document import build_profile
 from echomind.profiling.errors import ProfileError
-from echomind.profiling.fingerprints import build_source_manifest
+from echomind.profiling.fingerprints import build_source_manifest, generation_fingerprint
 from echomind.profiling.options import ProfileGenerationRequest
 from echomind.profiling.persistence import restore_document, to_snapshot
 from echomind.profiling.schemas import EchoProfileDocument, ProfileSourceManifest, StalenessResult
+from echomind.profiling.synthesis import synthesize_personality
+from echomind.providers import LLMProvider
 from echomind.repositories import profile_repository
+from echomind.services.analysis_service import configured_model_name
 
 
 def _enforce_limits(
@@ -63,14 +66,52 @@ def generate_profile(
     request: ProfileGenerationRequest,
     *,
     settings: Settings,
+    provider: LLMProvider | None = None,
     generated_at: datetime | None = None,
 ) -> tuple[ProfileSnapshot, bool]:
     generated_at = generated_at or utc_now()
+    effective_request = request
+    if request.include_personality_synthesis:
+        if provider is None:
+            raise ProfileError(
+                "profile_synthesis_provider_unavailable",
+                "Personality synthesis requires an available structured Provider.",
+                status_code=503,
+            )
+        effective_request = request.model_copy(
+            update={
+                "synthesis_provider_name": provider.provider_name,
+                "synthesis_model_name": configured_model_name(settings),
+            }
+        )
     for attempt in range(2):
         with session_factory() as read_session:
-            sources = profile_repository.load_profile_sources(read_session, request)
+            sources = profile_repository.load_profile_sources(read_session, effective_request)
         _enforce_limits(sources, settings)
-        built = build_profile(sources, request, generated_at=generated_at)
+        _, source_fingerprint = build_source_manifest(sources, effective_request)
+        expected_generation = generation_fingerprint(source_fingerprint, effective_request)
+        with session_factory() as existing_session:
+            existing = profile_repository.find_by_generation_fingerprint(
+                existing_session, expected_generation
+            )
+            if existing is not None:
+                return existing, False
+        synthesis = (
+            synthesize_personality(
+                sources,
+                effective_request,
+                settings=settings,
+                provider=provider,
+            )
+            if effective_request.include_personality_synthesis and provider is not None
+            else None
+        )
+        built = build_profile(
+            sources,
+            effective_request,
+            generated_at=generated_at,
+            personality_synthesis=synthesis,
+        )
         json_bytes = len(built.json_content.encode("utf-8"))
         markdown_bytes = len(built.markdown_content.encode("utf-8"))
         if json_bytes > settings.profile_max_json_bytes:
@@ -91,8 +132,8 @@ def generate_profile(
             )
             if existing is not None:
                 return existing, False
-            current = profile_repository.load_profile_sources(write_session, request)
-            _, current_fingerprint = build_source_manifest(current, request)
+            current = profile_repository.load_profile_sources(write_session, effective_request)
+            _, current_fingerprint = build_source_manifest(current, effective_request)
             if current_fingerprint != built.document.metadata.source_fingerprint:
                 if attempt == 0:
                     continue
@@ -114,19 +155,24 @@ def _request_from_snapshot(snapshot: ProfileSnapshot) -> ProfileGenerationReques
             "The Profile generation options are unavailable.",
             status_code=409,
         )
-    if (
-        snapshot.profile_version != "echo-profile-1.0"
-        or snapshot.schema_version != "echo-profile-document-1.0"
-    ):
+    supported_pairs = {
+        ("echo-profile-1.0", "echo-profile-document-1.0"),
+        ("echo-profile-2.0", "echo-profile-document-2.0"),
+    }
+    if (snapshot.profile_version, snapshot.schema_version) not in supported_pairs:
         raise ProfileError(
             "profile_source_unavailable",
             "The Profile version cannot be reconstructed.",
             status_code=409,
         )
     try:
-        return ProfileGenerationRequest(
-            request_id=UUID(int=0),
-            **options,
+        return ProfileGenerationRequest.model_validate(
+            {
+                "request_id": UUID(int=0),
+                "profile_version": snapshot.profile_version,
+                "profile_schema_version": snapshot.schema_version,
+                **options,
+            }
         )
     except (ValidationError, TypeError) as error:
         raise ProfileError(

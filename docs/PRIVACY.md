@@ -103,11 +103,14 @@ data/
 - 高置信批量确认只发送显式 Insight ID 与 expected revision，不发送聊天正文或 Evidence excerpt；响应只返回已确认 ID 和数量并使用 `no-store`。操作由用户显式确认，后端整批重验并为每条保留独立 Revision。
 - rejected、superseded、消息排除和 Evidence 失效都不是删除。恢复消息只移除用户排除及其派生的 `source_message_excluded`，其他自动或人工原因继续保留。
 
-### 阶段 10 Profile 隐私边界
+### EchoProfile 1.0 / 2.0 隐私边界
 
-- Profile 生成完全离线，不导入 Provider、HTTP client 或模型 Factory；只读取 confirmed Insight 和本地 Evidence 结构。
-- references 是默认模式，不复制 Evidence excerpt；excerpts 必须由用户显式选择并二次确认，只复制既有 excerpt，不读取 raw_content 或重新从 Message 生成。
-- Profile 不含 Participant 姓名、SourceFile filename、路径、source_message_id/source_location、cleaning operations、Prompt、Provider 响应、API Key、review note 或 Revision 历史。
+- 1.0 生成保持完全离线和只读兼容；references 不复制 Evidence excerpt，历史 excerpts 快照仍按高敏感数据保护。
+- 2.0 默认通过离线 Mock Provider 验证结构，Mock 不执行真实人格推断。远程综合必须同时满足服务端启用与当前 Profile 请求显式 consent。
+- 2.0 Provider 只接收 confirmed Insight 的派生字段：类型、类别、标题、陈述、最终 confidence、证据状态、自述标记、有效期、推理依据和其他解释。它不接收 raw/normalized 聊天正文、Evidence excerpt、数据库/源 ID、姓名、会话标题、文件名、路径、metadata、Key 或数据库 URL。
+- 2.0 公开 Document、Markdown 和 UI 不含 Evidence 索引、Evidence 引用、Message ID 或 Conversation ID。内部 Evidence、source manifest 和指纹仍保留在本地，用于 stale、失效传播和完整性检查；“不展示引用”不等于删除证据链。
+- 人格综合、Big Five 和 MBTI 映射都属于高敏感 AI 推断，只能表述为可修订参考，不得作为正式测评、诊断或决定性标签。
+- Profile 不含 Participant 姓名、SourceFile filename、路径、source_message_id/source_location、cleaning operations、API Key、review note 或 Revision 历史。
 - Source manifest 不保存 title、statement、reasoning 或 excerpt；这些内容只参与单向 SHA-256 组件计算。Profile 本身及 Snapshot 仍是高敏感派生数据。
 - Profile API 与导出统一 `no-store/no-cache`；导出使用通用 UTC 日期文件名和 `nosniff`，不含姓名、会话标题或文件名。
 - 前端只使用短期内存 Query；不预取导出、不把 Document/Markdown/JSON 写入 localStorage、sessionStorage、IndexedDB、Service Worker、URL 或 console。Markdown 只在用户点击后用 `<pre>` 显示。

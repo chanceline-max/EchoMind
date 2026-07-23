@@ -28,18 +28,26 @@ describe("ProfilesPage", () => {
     expect(screen.getByText("来源不可用")).toBeInTheDocument();
   });
 
-  it("uses confirmed-only references defaults and requires excerpt confirmation", async () => {
+  it("generates a synthesized Profile with explicit remote consent", async () => {
     mockedFetch.mockResolvedValue({ items: [], total: 0, limit: 20, offset: 0 });
-    mockedGenerate.mockResolvedValue({ profile_snapshot_id: "profile-1", profile_version: "echo-profile-1.0", schema_version: "echo-profile-document-1.0", generated_at: "2026-07-21T00:00:00Z", source_fingerprint: "a".repeat(64), generation_fingerprint: "b".repeat(64), document_hash: "c".repeat(64), insight_count: 1, evidence_count: 1, source_status: "current", created: false, reused: true, links: { self: "/p", markdown: "/m", json: "/j" } });
+    mockedGenerate.mockResolvedValue({ profile_snapshot_id: "profile-1", profile_version: "echo-profile-2.0", schema_version: "echo-profile-document-2.0", generated_at: "2026-07-21T00:00:00Z", source_fingerprint: "a".repeat(64), generation_fingerprint: "b".repeat(64), document_hash: "c".repeat(64), insight_count: 1, evidence_count: 1, source_status: "current", created: false, reused: true, links: { self: "/p", markdown: "/m", json: "/j" } });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     renderPage();
     expect(await screen.findByText(/还没有档案快照/)).toBeInTheDocument();
-    expect(screen.getByLabelText("证据模式")).toHaveValue("references");
-    await userEvent.selectOptions(screen.getByLabelText("证据模式"), "excerpts");
-    expect(screen.getByText(/敏感导出/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "生成认知档案" }));
+    await userEvent.click(screen.getByLabelText(/同意发送已确认的 Insight 派生文本/));
+    await userEvent.click(screen.getByRole("button", { name: "生成综合人格档案" }));
     expect(confirm).toHaveBeenCalled();
-    await waitFor(() => expect(mockedGenerate).toHaveBeenCalledWith(expect.objectContaining({ evidenceMode: "excerpts", includePartialEvidence: true, includeInvalidated: true, includeReasoning: true })));
+    await waitFor(() => expect(mockedGenerate).toHaveBeenCalledOnce());
+    const generatedOptions = mockedGenerate.mock.calls[0]?.[0];
+    expect(generatedOptions).toMatchObject({
+      evidenceMode: "references",
+      includeInvalidated: true,
+      includePartialEvidence: true,
+      includePersonalitySynthesis: true,
+      includeReasoning: true,
+      remoteConsent: true,
+    });
+    expect(typeof generatedOptions?.generatedAsOf).toBe("string");
     expect(await screen.findByText(/已复用相同来源/)).toBeInTheDocument();
   });
 

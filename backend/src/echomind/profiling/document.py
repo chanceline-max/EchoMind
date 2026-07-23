@@ -16,6 +16,7 @@ from echomind.profiling.options import ProfileGenerationRequest
 from echomind.profiling.schemas import (
     BuiltProfile,
     EchoProfileDocument,
+    PersonalitySynthesis,
     ProfileDocumentMetadata,
     ProfileEvidenceItem,
     ProfileInsightItem,
@@ -74,6 +75,7 @@ def build_profile(
     request: ProfileGenerationRequest,
     *,
     generated_at: datetime,
+    personality_synthesis: PersonalitySynthesis | None = None,
 ) -> BuiltProfile:
     manifest, source_fingerprint = build_source_manifest(sources, request)
     generation = generation_fingerprint(source_fingerprint, request)
@@ -139,7 +141,11 @@ def build_profile(
                     alternative_explanations=(
                         list(source.alternative_explanations) if request.include_reasoning else []
                     ),
-                    evidence_refs=[evidence_refs[item.evidence_id] for item in source.evidence],
+                    evidence_refs=(
+                        []
+                        if personality_synthesis is not None
+                        else [evidence_refs[item.evidence_id] for item in source.evidence]
+                    ),
                     warnings=_warnings(source),
                     minimum_rule_code=(
                         str(factors.get("minimum_rule_code"))
@@ -160,6 +166,14 @@ def build_profile(
         )
 
     limitations = list(BASE_LIMITATIONS)
+    if personality_synthesis is not None:
+        limitations.extend(
+            [
+                "综合人格分析是基于已确认 Insight 的 AI 辅助解释，不是正式人格测评。",
+                "Big Five 与 MBTI 仅作为参考框架，不能决定职业、关系或人生选择。",
+                "正文不展示逐条 Evidence，但内部证据链仍用于有效性和过期检查。",
+            ]
+        )
     if request.evidence_mode == "excerpts":
         limitations.append("excerpts 模式可能包含敏感聊天片段，请妥善保管导出文件。")
     valid_count = sum(item.evidence_state == EvidenceState.VALID for item in visible)
@@ -191,11 +205,16 @@ def build_profile(
     )
     document = EchoProfileDocument(
         metadata=metadata,
+        personality_synthesis=personality_synthesis,
         sections=sections,
-        evidence_index=[
-            _evidence_item(item, evidence_refs[item.evidence_id], request)
-            for item in ordered_evidence
-        ],
+        evidence_index=(
+            []
+            if personality_synthesis is not None
+            else [
+                _evidence_item(item, evidence_refs[item.evidence_id], request)
+                for item in ordered_evidence
+            ]
+        ),
     )
     metadata.document_hash = document_hash(document.model_dump(mode="json"))
     json_content = render_json(document)

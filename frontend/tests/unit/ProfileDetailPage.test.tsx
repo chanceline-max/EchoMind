@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { downloadProfile, fetchMarkdownPreview, fetchProfile } from "../../src/api/profiles";
 import { ProfileDetailPage } from "../../src/pages/ProfileDetailPage";
-import { profileDetail } from "../fixtures/profiles";
+import { profileDetail, synthesizedProfileDetail } from "../fixtures/profiles";
 
 vi.mock("../../src/api/profiles", () => ({ fetchProfile: vi.fn(), fetchMarkdownPreview: vi.fn(), downloadProfile: vi.fn() }));
 
@@ -42,5 +42,17 @@ describe("ProfileDetailPage", () => {
     expect(confirm).toHaveBeenCalled();
     await waitFor(() => expect(downloadProfile).toHaveBeenCalledWith("profile-1", "json"));
     expect(await screen.findByRole("alert")).toHaveTextContent("导出失败");
+  });
+
+  it("renders a synthesized personality portrait without visible evidence references", async () => {
+    vi.mocked(fetchProfile).mockResolvedValue(synthesizedProfileDetail);
+    renderPage();
+    expect(await screen.findByRole("heading", { name: "审慎探索型的长期建构者" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "人格框架参考" })).toBeInTheDocument();
+    expect(screen.getByText("Big Five")).toBeInTheDocument();
+    expect(screen.getByText("MBTI")).toBeInTheDocument();
+    expect(screen.getByText("中等参考强度")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "证据索引" })).not.toBeInTheDocument();
+    expect(screen.queryByText("E001")).not.toBeInTheDocument();
   });
 });

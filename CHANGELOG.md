@@ -9,6 +9,8 @@
 - Insight、Evidence、审核修订和 EchoProfile 的受控状态在前端统一显示为简体中文，内部 API/数据库枚举保持不变。
 - 候选抽取升级为 `candidate-extraction-1.1`，要求面向用户的模型自由文本使用简体中文；历史 1.0 Insight 不自动翻译或覆盖。
 - 洞察审核增加显式高置信批量确认：仅限 `>50%`、证据有效的 fact/preference/pattern/change；风险类型仍逐条审核，后端整批重验并保留逐条修订历史。
+- EchoProfile 2.0 将 confirmed Insight 综合为连贯的人物分析，并加入 Big Five 与 MBTI 的非决定性参考；公开页面和导出不再堆叠 Evidence 引用，内部证据链继续用于 stale 与失效检查。
+- 人格综合复用统一 Provider 安全边界：默认 Mock 只返回信息不足，远程调用必须显式授权，且不发送原始聊天、Evidence 摘录、姓名、文件或数据库 ID。
 
 ## [0.1.0] - 2026-07-18
 

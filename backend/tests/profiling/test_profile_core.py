@@ -36,6 +36,13 @@ def test_request_is_strict_utc_and_selected_ids_are_stably_deduplicated() -> Non
         )
     with pytest.raises(ValidationError):
         profile_request(unknown=True)
+    with pytest.raises(ValidationError, match="Profile 2.0 requires personality synthesis"):
+        profile_request(
+            profile_version="echo-profile-2.0",
+            profile_schema_version="echo-profile-document-2.0",
+        )
+    with pytest.raises(ValidationError, match="Profile 1.0 does not support"):
+        profile_request(include_personality_synthesis=True)
 
 
 def test_confirmed_only_selection_keeps_zero_confidence_and_rejects_bad_selected(

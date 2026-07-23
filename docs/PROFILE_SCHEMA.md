@@ -1,105 +1,159 @@
 # EchoProfile 输出规范
 
-## 1. 版本和不变量
+## 1. 版本与定位
 
-- Profile 版本：`echo-profile-1.0`。
-- Schema 版本：`echo-profile-document-1.0`。
-- 选择策略：`confirmed-only-1.0`，只允许 `status=confirmed`；confidence 不作为纳入门槛。
-- `EchoProfileDocument` 是 Markdown 与 JSON 的唯一语义源，两种输出不得分别拼装。
-- 生成过程离线、确定性，不调用 Provider，不创建或修改 Insight。
-- ProfileSnapshot 创建后不可更新或删除；历史内容不因来源变化而回写。
+- `echo-profile-1.0` / `echo-profile-document-1.0` 是已发布的可追溯 Insight 快照格式，继续只读兼容。
+- `echo-profile-2.0` / `echo-profile-document-2.0` 是当前综合人格档案格式。
+- 2.0 把已确认 Insight 综合为连贯的人物分析，不把 Insight 或 Evidence 列表当作最终档案正文。
+- 2.0 必须同时包含 Big Five 与 MBTI 两种参考框架；它们不是标准化测评、诊断或决定性结论。
+- `EchoProfileDocument` 仍是 Markdown 与 JSON 的唯一语义源，两种输出不得分别拼装。
+- ProfileSnapshot 创建后不可更新或删除；旧快照不会因版本升级或来源变化被回写。
 
 ## 2. 生成请求
 
-`ProfileGenerationRequest` 严格拒绝额外字段，包含：
+`ProfileGenerationRequest` 严格拒绝额外字段。两个版本只接受以下配对：
 
-| 字段 | 契约 |
-|---|---|
-| `request_id` | 应用生成 UUID；不进入指纹 |
-| `profile_version` | 只允许 `echo-profile-1.0` |
-| `profile_schema_version` | 只允许 `echo-profile-document-1.0` |
-| `scope` | `all_confirmed` 或 `selected_confirmed` |
-| `selected_insight_ids` | selected scope 必填、至少一项、稳定去重、最多 1000；非 confirmed 或不存在均明确失败 |
-| `include_partial_evidence` | 默认 true；false 时排除 partial 正文但保留统计/来源追溯 |
-| `include_invalidated` | 默认 true；invalid 只进入“证据已失效”章节 |
-| `evidence_mode` | 默认 `references`；显式选择 `excerpts` 才复制既有 Evidence excerpt |
-| `include_reasoning` | 默认 true；只控制 reasoning_basis 和 alternative_explanations |
-| `generated_as_of` | 必填 aware datetime，入模前转 UTC |
+| Profile | Schema | 综合人格分析 |
+|---|---|---|
+| `echo-profile-1.0` | `echo-profile-document-1.0` | 禁止 |
+| `echo-profile-2.0` | `echo-profile-document-2.0` | 必须 |
 
-## 3. 固定章节和路由
+共有选项包括：
 
-正文按以下固定顺序输出：
+- `request_id`
+- `scope=all_confirmed|selected_confirmed`
+- `selected_insight_ids`
+- `include_partial_evidence`
+- `include_invalidated`
+- `evidence_mode=references|excerpts`
+- `include_reasoning`
+- `generated_as_of`
 
-1. `background` 基础背景
-2. `preferences` 稳定偏好
-3. `thinking_patterns` 思维模式
-4. `behavior_execution` 行为与执行模式
-5. `emotional_responses` 情绪反应模式
-6. `relationship_patterns` 人际关系模式
-7. `values_motivation` 价值观与核心驱动力
-8. `internal_conflicts` 内部冲突与张力
-9. `temporal_changes` 时间演化
-10. `contradictions` 矛盾信息
-11. `hypotheses` 待验证假设
-12. `other_confirmed` 其他已确认判断
-13. `invalidated` 证据已失效
+2.0 还包含：
 
-路由优先级为 invalid → contradiction → hypothesis → change/temporal_change → background → preference →受控 category → other。一个 Insight 只进入一个正文章节。时间演化按有效期升序；矛盾/假设按 confidence、更新时间、ID；其他章节按 confidence、valid_from、ID，所有排序都有稳定 ID 兜底。
+- `include_personality_synthesis=true`
+- `remote_consent`
+- 服务端写入的 `synthesis_provider_name` 与 `synthesis_model_name`
 
-## 4. 唯一结构化文档
+`remote_consent` 只用于当前调用授权，不写入 Snapshot，也不参与可复用选项。Provider、模型、端点和 Key 由服务端配置决定，浏览器不能覆盖。
 
-`EchoProfileDocument` 顶层仅含：
+## 3. 选择与内部来源
+
+- 只读取 `status=confirmed` 的 Insight；confidence 不是纳入门槛。
+- `partial` 是否纳入由请求决定；`invalid` 只能作为历史变化或不确定性输入，不能被表述为当前有效事实。
+- 生成前仍加载本地 Evidence 结构并建立 `profile-source-1.0` manifest。
+- manifest、source fingerprint 与 generation fingerprint 用于幂等复用、完整性检查和动态 stale 检测。
+- 2.0 的公开 Document、Markdown 与 JSON 不含 Evidence 索引、Evidence 引用、Message ID 或 Conversation ID；这不代表内部证据链被删除。
+
+## 4. 2.0 综合上下文边界
+
+Provider 只接收已确认 Insight 的以下派生字段：
+
+- `insight_type`
+- `category`
+- `title`
+- `statement`
+- 最终 `confidence`
+- `evidence_state`
+- `explicit_self_report`
+- `valid_from` / `valid_to`
+- `reasoning_basis`
+- `alternative_explanations`
+
+不发送：
+
+- `raw_content` 或 `normalized_content`
+- Evidence excerpt、Evidence/Message/Conversation/SourceFile ID
+- 参与者姓名、会话标题、文件名、本机路径或 metadata
+- API Key、数据库 URL、Prompt 历史或审核备注
+
+输入按确定性顺序构造，单个内容块最多 18,000 字符，总上下文最多 80,000 字符。超出预算的 Insight 数量记录为 `omitted_insight_count`，不能被静默忽略。
+
+默认 Mock Provider 完全离线，只返回“信息不足”的确定性结构，用于验证闭环，不伪造个性化分析。远程 Provider 必须同时满足服务端启用与当前请求显式 consent。
+
+## 5. EchoProfileDocument
+
+顶层字段：
 
 - `metadata: ProfileDocumentMetadata`
+- `personality_synthesis: PersonalitySynthesis | null`
 - `sections: ProfileSection[]`
 - `evidence_index: ProfileEvidenceItem[]`
 
-Metadata 保存 profile/schema 版本、生成时间、选择策略、scope、evidence mode、三类指纹/Hash、纳入/排除统计、会话/源文件统计和固定局限性。
+1.0 的 `personality_synthesis=null`，保留 sections 与 evidence_index。
 
-`ProfileInsightItem` 保存 I 编号、本地 Insight ID、生成时 revision、类型/category、title/statement、最终 confidence 及版本/解释、evidence_state、自述标记、有效期、可选推理、E 引用、警告、最低规则码和有效/无效 Evidence 数量。它不包含 model confidence、Provider、Prompt、review note、抽取指纹或修订历史。
+2.0 的 `personality_synthesis` 必须存在；sections 仍作为内部来源快照保存，但每个 `evidence_refs=[]`，`evidence_index=[]`。前端和 Markdown 只呈现综合分析，不呈现这些内部条目。
 
-`ProfileEvidenceItem` 保存 E 编号、本地 Evidence/Message/Conversation ID、Evidence 类型和立场、相关度、有效性/原因、消息时间、匿名 `PROFILE_OWNER/OTHER` 角色；只有 excerpts 模式包含既有 excerpt。它不包含 raw/normalized content、姓名、源消息 ID、文件名、路径、cleaning operations 或 metadata。
+## 6. PersonalitySynthesis
 
-## 5. I/E 引用
+固定版本为 `personality-synthesis-1.0`，字段包括：
 
-- 正文最终排序后依次分配 `I001...`。
-- Evidence 按时间、Conversation、Message、Evidence ID 稳定排序后分配 `E001...`。
-- 同一 Evidence 被多个 Insight 引用时只出现一次，所有 Insight 复用同一 E 编号。
-- JSON 同时保留本地数据库 ID；Markdown 主要展示 I/E 编号。
+- `headline`
+- `overall_summary`
+- `core_traits`
+- `thinking_style`
+- `decision_style`
+- `motivation_and_values`
+- `social_and_relationship_style`
+- `emotional_and_stress_patterns`
+- `strengths`
+- `growth_edges`
+- `tensions_and_changes`
+- `framework_assessments`
+- `uncertainty_note`
+- `provider_name` / `model_name`
+- `input_insight_count` / `omitted_insight_count`
 
-## 6. valid、partial 和 invalid
+输出必须使用克制的简体中文，不得逐条复述输入，不得使用医疗、心理诊断或病理化语言。稳定特征、场景表现、变化和矛盾应被区分；信息不足时必须明确说明。
 
-- valid：进入正常章节。
-- partial：默认进入正常章节，显示“部分证据已失效”及有效/无效数量；可由请求排除。
-- invalid：永不作为当前有效结论进入正常章节；默认进入“证据已失效”，显示不能作为当前结论使用；可隐藏具体条目但仍计入统计。
-- hypothesis 固定显示“待验证假设”。
-- contradiction 固定说明分数支持的是冲突存在，不代表某一方正确。
+## 7. Big Five 与 MBTI 契约
 
-## 7. Markdown 与 JSON
+`framework_assessments` 必须恰好两项并保持以下顺序：
 
-Markdown 使用 UTF-8、LF、单一末尾换行、固定 heading/章节/item 格式，不生成 HTML。用户派生文本对反斜杠、标题/列表/链接控制符、反引号、尖括号和 URL scheme 做安全处理；前端只用 `<pre>` 纯文本预览。
+1. `big_five`
+2. `mbti`
 
-JSON 使用 `model_dump(mode="json")` 后 `json.dumps(sort_keys=True, ensure_ascii=False, indent=2, allow_nan=False)`，日期为 RFC 3339 UTC，输出以一个 LF 结束。两种 renderer 只接受同一个 `EchoProfileDocument`，契约测试核对章节、I/E 引用、数量、statement、confidence、状态和 evidence mode。
+Big Five 必须包含：
 
-## 8. 指纹和 Hash
+- openness
+- conscientiousness
+- extraversion
+- agreeableness
+- emotional_stability
 
-- `profile-source-1.0`：覆盖选定 Insight 当前 revision/status/content、最终 confidence、evidence_state 及 Evidence 的结构化追溯特征；不含正文副本、excerpt、姓名、文件名、路径、Provider 或 Key。正文只参与 SHA-256 计算，不写入 manifest。
-- `profile-generation-1.0`：覆盖 source fingerprint、完整安全选项、Profile/Schema/section/renderer 版本；相同值由数据库唯一索引复用。
-- `profile-document-sha256`：对规范化 JSON 计算 SHA-256。为解除自引用，计算时唯一将 `metadata.document_hash` 规范化为空字符串；读取/导出前用同一规则复核。
+MBTI 必须包含：
 
-`source_manifest_json` 只保存 ID、revision、status、confidence、Evidence fingerprint/validity 及内容/组件 Hash，不保存正文。
+- energy（E / I）
+- information（S / N）
+- decisions（T / F）
+- lifestyle（J / P）
 
-## 9. Snapshot 与 stale
+每个维度只能使用 `low|moderately_low|balanced|moderately_high|high|insufficient`。框架整体参考强度只能使用 `low|medium|high|insufficient`。
 
-新 Snapshot 原子保存 Markdown、JSON、generation options、source manifest、三类指纹/Hash和计数，`source_status_at_generation=current`。ORM 拒绝 update/delete，API 不提供 PATCH/DELETE。
+MBTI 可以给出倾向或类型区间，但不得声称完成正式 MBTI 测评。两种框架都不能覆盖完整人物分析，也不能用于决定职业、关系、能力或人生选择。
 
-读取时用原选项重新计算当前来源：相同为 `current`；revision/status/content/confidence/evidence/confirmed 集合变化为 `stale`；来源实体缺失或无法重建为 `source_unavailable`。返回安全 reason code，不返回正文。该计算不修改历史 Snapshot、Markdown、JSON 或 document hash。
+## 8. 渲染与完整性
 
-## 10. API 与导出
+- Markdown 和 JSON 只从通过 Pydantic 校验的同一 Document 渲染。
+- 2.0 Markdown 依次呈现人格题名、综合摘要、思维/决策/价值/关系/压力模式、优势、成长方向、矛盾变化、Big Five、MBTI 和不确定性。
+- 2.0 Markdown 和 JSON 不生成证据编号、消息链接或 Evidence 索引。
+- JSON 使用稳定键排序、UTF-8、RFC 3339 时间和结尾 LF。
+- `profile-generation-1.0` 覆盖来源、请求选项、Profile/Schema 和 renderer 版本，并由唯一索引复用。
+- `profile-document-sha256` 对规范化 JSON 计算 SHA-256；计算时把自身 hash 字段置空。
+- 读取 Snapshot 时先验证 document hash，再按相应 1.0/2.0 Schema 恢复。
 
-- `POST /api/v1/profiles`：新建 201；相同 generation fingerprint 复用 200。
-- `GET /api/v1/profiles`：分页摘要，不返回正文、manifest 或 excerpt。
-- `GET /api/v1/profiles/{id}`：结构化 Document、动态状态和导出链接。
-- `GET /api/v1/profiles/{id}/markdown|json`：显式下载，安全通用文件名，`no-store`、`no-cache`、`nosniff`。
+## 9. stale、隐私与导出
 
-当前没有 PDF/Word、HTML renderer、Profile 编辑、Snapshot 删除、云发布或公开分享。
+- 来源变化只动态返回 `current|stale|source_unavailable` 及安全 reason code，历史正文和 hash 永不回写。
+- 2.0 即使不显示证据引用，也必须继续通过内部 manifest 检测 Insight 修订、状态、confidence 和 Evidence 有效性变化。
+- Profile API、Markdown 和 JSON 导出使用 `no-store/no-cache`；只有用户显式点击才请求导出。
+- 前端不得把 Profile 写入 localStorage、sessionStorage、IndexedDB、Service Worker cache、URL 或 console。
+- EchoProfile 是高敏感派生数据，不是永久真相、正式人格测评或诊断。
+
+## 10. 已知限制
+
+- 默认 Mock 不执行真实人格推断。
+- 真实远程 Provider 的结构化输出兼容性尚未广泛验证。
+- 聊天样本可能集中于少数关系或情境，框架映射可能随上下文变化。
+- 当前没有正式问卷导入、用户逐段修订、PDF/Word、云分享或公开链接。
+- 1.0 与 2.0 Snapshot 都保持不可变；升级不会自动重写旧档案。

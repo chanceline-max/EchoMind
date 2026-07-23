@@ -70,6 +70,12 @@
 
 验收：只纳入 confirmed；valid/partial/invalid 分区明确；两种格式语义一致、可追溯、稳定并通过 schema；相同来源/选项复用快照；阶段 5/9/10 E2E 通过。当前无 proposed Profile、编辑、删除、PDF/Word 或云分享。
 
+### 维护升级：EchoProfile 2.0（开发中）
+
+目标：在保留 1.0 快照兼容、内部证据链、不可变与 stale 规则的前提下，把 Profile 从 Insight/Evidence 列表升级为综合人物分析。2.0 正文包含性格、思维、决策、价值、关系、压力、优势、成长和变化，并以 Big Five 与 MBTI 作为非决定性参考；公开输出不展示 Evidence/Message 引用。
+
+边界：默认 Mock 只返回信息不足；远程综合需要显式授权且只接收 confirmed Insight 派生文本。没有正式问卷、诊断、Profile 编辑、旧快照重写、PDF/Word 或云分享。
+
 ## 阶段 11：端到端 MVP 验收（已完成）
 
 范围：按照 `PRODUCT_SPEC.md` 验收矩阵执行完整离线闭环，生成 `MVP_AUDIT.md`。只修复阻断闭环或涉及数据安全的问题。

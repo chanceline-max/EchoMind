@@ -10,6 +10,8 @@ import type {
   ProfilePage,
   ProfileSection,
   ProfileSummary,
+  PersonalityFrameworkAssessment,
+  PersonalitySynthesis,
 } from "../types/profiles";
 
 const invalid = () =>
@@ -62,6 +64,63 @@ const validSection = (value: unknown): value is ProfileSection =>
   Array.isArray(value.items) &&
   value.items.every(validInsight);
 
+const validFrameworkDimension = (
+  item: unknown,
+): item is { dimension_key: string; label: string; tendency: string; summary: string } =>
+    isRecord(item) &&
+    typeof item.dimension_key === "string" &&
+    typeof item.label === "string" &&
+    ["low", "moderately_low", "balanced", "moderately_high", "high", "insufficient"].includes(
+      String(item.tendency),
+    ) &&
+    typeof item.summary === "string";
+
+const validFrameworkDimensions = (value: unknown, framework: unknown): boolean => {
+  if (!Array.isArray(value) || !value.every(validFrameworkDimension)) return false;
+  const actual = value.map((item) => String(item.dimension_key));
+  const expected = framework === "big_five"
+    ? ["openness", "conscientiousness", "extraversion", "agreeableness", "emotional_stability"]
+    : ["energy", "information", "decisions", "lifestyle"];
+  return actual.length === expected.length &&
+    new Set(actual).size === actual.length &&
+    expected.every((key) => actual.includes(key));
+};
+
+const validFramework = (value: unknown): value is PersonalityFrameworkAssessment =>
+  isRecord(value) &&
+  ["big_five", "mbti"].includes(String(value.framework)) &&
+  typeof value.display_name === "string" &&
+  typeof value.result === "string" &&
+  ["low", "medium", "high", "insufficient"].includes(String(value.confidence)) &&
+  typeof value.summary === "string" &&
+  validFrameworkDimensions(value.dimensions, value.framework) &&
+  stringArray(value.caveats);
+
+const validSynthesis = (value: unknown): value is PersonalitySynthesis =>
+  isRecord(value) &&
+  value.synthesis_version === "personality-synthesis-1.0" &&
+  typeof value.headline === "string" &&
+  typeof value.overall_summary === "string" &&
+  stringArray(value.core_traits) &&
+  typeof value.thinking_style === "string" &&
+  typeof value.decision_style === "string" &&
+  typeof value.motivation_and_values === "string" &&
+  typeof value.social_and_relationship_style === "string" &&
+  typeof value.emotional_and_stress_patterns === "string" &&
+  stringArray(value.strengths) &&
+  stringArray(value.growth_edges) &&
+  stringArray(value.tensions_and_changes) &&
+  Array.isArray(value.framework_assessments) &&
+  value.framework_assessments.length === 2 &&
+  value.framework_assessments.every(validFramework) &&
+  value.framework_assessments[0]?.framework === "big_five" &&
+  value.framework_assessments[1]?.framework === "mbti" &&
+  typeof value.uncertainty_note === "string" &&
+  typeof value.provider_name === "string" &&
+  typeof value.model_name === "string" &&
+  typeof value.input_insight_count === "number" &&
+  typeof value.omitted_insight_count === "number";
+
 const validDocument = (value: unknown): value is ProfileDocument =>
   isRecord(value) &&
   isRecord(value.metadata) &&
@@ -70,6 +129,7 @@ const validDocument = (value: unknown): value is ProfileDocument =>
   typeof value.metadata.document_hash === "string" &&
   typeof value.metadata.evidence_count === "number" &&
   stringArray(value.metadata.limitations) &&
+  (value.personality_synthesis === null || validSynthesis(value.personality_synthesis)) &&
   Array.isArray(value.sections) &&
   value.sections.every(validSection) &&
   Array.isArray(value.evidence_index) &&
@@ -117,14 +177,16 @@ export async function generateProfile(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       request_id: crypto.randomUUID(),
-      profile_version: "echo-profile-1.0",
-      profile_schema_version: "echo-profile-document-1.0",
+      profile_version: "echo-profile-2.0",
+      profile_schema_version: "echo-profile-document-2.0",
       scope: "all_confirmed",
       selected_insight_ids: [],
       include_partial_evidence: options.includePartialEvidence,
       include_invalidated: options.includeInvalidated,
       evidence_mode: options.evidenceMode,
       include_reasoning: options.includeReasoning,
+      include_personality_synthesis: options.includePersonalitySynthesis,
+      remote_consent: options.remoteConsent,
       generated_as_of: options.generatedAsOf,
     }),
   });
